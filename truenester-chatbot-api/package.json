@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "start": "node --enable-source-maps --loader ts-node/esm src/server.ts",
+    "start": "tsx src/server.ts",
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
@@ -19,6 +19,8 @@
     "morgan": "^1.10.0",
     "pdfkit": "^0.15.0",
     "@supabase/supabase-js": "^2.48.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.3",
     "zod": "^3.25.8"
   },
   "devDependencies": {
@@ -28,8 +30,6 @@
     "@types/node": "^22.9.0",
     "eslint": "^9.32.0",
     "ts-node": "^10.9.2",
-    "tsconfig-paths": "^4.2.0",
-    "tsx": "^4.19.2",
-    "typescript": "^5.8.3"
+    "tsconfig-paths": "^4.2.0"
   }
 }

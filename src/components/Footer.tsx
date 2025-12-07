@@ -154,7 +154,7 @@ const Footer = () => {
         <div className="mt-8 pt-8 border-t border-gray-700">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-gray-400">
-              © 2025 TRUE NESTER. All rights reserved. Developed by <span className="text-primary font-semibold">True Nester</span>
+              © 2025 TRUE NESTER. All rights reserved. Developed by <span className="text-primary font-semibold">True </span>
             </p>
             <div className="flex gap-6 text-sm text-gray-400">
               <a href="#" className="hover:text-primary transition-colors">
