@@ -1,0 +1,199 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 210 29% 24%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 210 29% 24%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 29% 24%;
+
+    /* TRUE NESTER Brand Colors */
+    --primary: 168 76% 42%;
+    --primary-foreground: 0 0% 100%;
+    
+    --primary-dark: 168 76% 36%;
+    --primary-light: 168 76% 48%;
+
+    --secondary: 210 29% 24%;
+    --secondary-foreground: 0 0% 100%;
+    
+    --secondary-light: 204 70% 53%;
+
+    --accent: 37 90% 51%;
+    --accent-foreground: 0 0% 100%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 168 76% 42%;
+
+    --radius: 0.75rem;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(168 76% 42%), hsl(168 76% 36%));
+    --gradient-secondary: linear-gradient(135deg, hsl(210 29% 24%), hsl(204 70% 53%));
+    --gradient-accent: linear-gradient(135deg, hsl(37 90% 51%), hsl(37 90% 45%));
+    
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+    --shadow-primary: 0 10px 30px -10px hsl(168 76% 42% / 0.3);
+    
+    /* Animations */
+    --transition-base: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark {
+    --background: 210 29% 24%;
+    --foreground: 0 0% 100%;
+
+    --card: 217.2 32.6% 17.5%;
+    --card-foreground: 0 0% 100%;
+
+    --popover: 217.2 32.6% 17.5%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 168 76% 42%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 37 90% 51%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 168 76% 42%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Poppins', 'Inter', sans-serif;
+    font-weight: 600;
+  }
+}
+
+@layer components {
+  .container-custom {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .hover-lift {
+    @apply transition-transform duration-300 hover:-translate-y-1;
+  }
+
+  .hover-scale {
+    @apply transition-transform duration-300 hover:scale-105;
+  }
+
+  .text-gradient-primary {
+    @apply bg-gradient-to-r from-primary to-primary-dark bg-clip-text text-transparent;
+  }
+
+  .text-gradient-accent {
+    @apply bg-gradient-to-r from-accent to-amber-600 bg-clip-text text-transparent;
+  }
+
+  .bg-gradient-primary {
+    background: linear-gradient(135deg, hsl(168 76% 42%), hsl(168 76% 36%));
+  }
+
+  .bg-gradient-secondary {
+    background: linear-gradient(135deg, hsl(210 29% 24%), hsl(204 70% 53%));
+  }
+
+  .badge-new {
+    @apply bg-accent text-accent-foreground text-xs font-semibold px-2 py-1 rounded;
+  }
+
+  .badge-featured {
+    @apply bg-primary text-primary-foreground text-xs font-semibold px-2 py-1 rounded;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.6s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* 👶 SIMPLE GUIDE: Dropdown Card Animation
+     This makes the white card slide down smoothly when it appears
+     HOW TO CUSTOMIZE:
+     - Change "8px" to make it slide from higher (bigger number) or lower (smaller number)
+     - Change "0.2s" to make it slower (bigger like 0.5s) or faster (smaller like 0.1s)
+  */
+  @keyframes dropdownSlideIn {
+    from {
+      opacity: 0;              /* 👶 Starts invisible */
+      transform: translateY(-8px);  /* 👶 Starts 8 pixels UP */
+    }
+    to {
+      opacity: 1;              /* 👶 Ends fully visible */
+      transform: translateY(0);     /* 👶 Ends in normal position */
+    }
+  }
+
+  /* 👶 This class makes the dropdown card animate */
+  .dropdown-animate {
+    animation: dropdownSlideIn 0.2s ease-out;  /* 👶 0.2s = how long animation takes */
+  }
+}
