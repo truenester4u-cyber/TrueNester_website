@@ -36,8 +36,8 @@ interface Property {
   purpose: string;
   city: string;
   location: string;
-  bedrooms: number | null;
-  bathrooms: number | null;
+  bedrooms: string | null;
+  bathrooms: string | null;
   featured: boolean;
   price_display: string | null;
   featured_dubai: boolean;
@@ -103,8 +103,8 @@ const Properties = () => {
 
       if (error) throw error;
 
-      setProperties(data || []);
-      setFilteredProperties(data || []);
+      setProperties((data as any) || []);
+      setFilteredProperties((data as any) || []);
     } catch (error: any) {
       toast({
         title: "Error",

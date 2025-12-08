@@ -24,12 +24,17 @@ const usePublishedProperties = (search: string) => {
   return useQuery<Property[], Error>({
     queryKey: ["properties", search],
     queryFn: async () => {
-      let query = supabase.from("properties").select("*").eq("published", true).in("purpose", ["buy", "sale"]).order("created_at", {
-        ascending: false,
-      });
+      let query = supabase
+        .from("properties")
+        .select("*")
+        .eq("published", true)
+        .in("purpose", ["buy", "sale"])
+        .order("created_at", { ascending: false });
+
       if (search.trim()) {
         query = query.or(`title.ilike.%${search}%,location.ilike.%${search}%`);
       }
+
       const { data, error } = await query.limit(48);
       if (error) throw error;
       return (data || []) as Property[];
@@ -106,7 +111,7 @@ const Buy = () => {
       const propBedrooms = (() => {
         const raw = property.bedrooms;
         if (typeof raw === "number") return raw;
-        const text = (raw ?? "").toString().toLowerCase();
+        const text = String(raw ?? "").toLowerCase();
         // If it mentions studio at all (e.g., "Studio - 2 Bedroom"), treat as studio (0)
         if (text.includes("studio")) return 0;
         const matches = text.match(/\d+/g);
@@ -137,7 +142,7 @@ const Buy = () => {
 
     // Size filter - only apply if user moved sliders
     if (minSize !== 500 || maxSize !== 10000) {
-      const size = property.size_sqft ?? 0;
+      const size = parseSqftValue(property.size_sqft);
       if (size === 0 || size < minSize || size > maxSize) return false;
     }
     return true;
@@ -157,6 +162,13 @@ const Buy = () => {
     }
   });
 
+  const parseSqftValue = (value: string | number | null | undefined) => {
+    if (typeof value === "number") return value;
+    const text = (value ?? "").toString().replace(/,/g, "");
+    const match = text.match(/([0-9]+(\.\d+)?)/);
+    return match ? parseFloat(match[1]) : 0;
+  };
+
   const formatPrice = (price?: number) =>
     typeof price === "number"
       ? new Intl.NumberFormat("en-AE", { style: "currency", currency: "AED", minimumFractionDigits: 0 }).format(price)
@@ -174,6 +186,17 @@ const Buy = () => {
     const locationLabel = typeof property.location === "string" ? property.location.trim() : "";
     if (locationLabel) return locationLabel;
     return property.city || "";
+  };
+
+  const formatSizeValue = (value?: string | number | null) => {
+    if (value === null || value === undefined) return "";
+    const raw = typeof value === "number" ? value.toString() : value.toString().trim();
+    if (!raw) return "";
+    const numeric = Number(raw.replace(/,/g, ""));
+    if (Number.isFinite(numeric) && /^[0-9.,]+$/.test(raw.replace(/\s+/g, ""))) {
+      return `${numeric.toLocaleString()} sqft`;
+    }
+    return raw;
   };
 
   return (
@@ -555,7 +578,7 @@ const Buy = () => {
                                 {property.size_sqft && (
                                   <div className="flex items-center gap-1.5">
                                     <Square className="h-5 w-5 text-primary" />
-                                    <span className="font-medium">{Number(property.size_sqft).toLocaleString()} sqft</span>
+                                    <span className="font-medium">{formatSizeValue(property.size_sqft)}</span>
                                   </div>
                                 )}
                               </div>

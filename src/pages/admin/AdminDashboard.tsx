@@ -225,7 +225,7 @@ const AdminDashboard = () => {
               title="Settings"
               description="Configure site settings"
               icon={Settings}
-              onClick={() => toast({ title: "Coming Soon", description: "Settings page is under development" })}
+              onClick={() => navigate("/admin/settings")}
             />
           </div>
         </div>

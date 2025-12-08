@@ -9,7 +9,7 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type React from "react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, TouchEvent } from "react";
 import TrueNesterLogo from "@/assets/TrueNester_logo.png";
 import "@/components/admin/RichTextEditorStyles.css";
 import { parsePropertyTypes } from "@/lib/utils";
@@ -79,6 +79,12 @@ const PropertyDetail = () => {
   const [activeSection, setActiveSection] = useState<SectionKey>("overview");
   const [activePropertyType, setActivePropertyType] = useState("");
 
+  // Mobile swipe gallery state
+  const [mobileImageIndex, setMobileImageIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const minSwipeDistance = 50;
+
   const overviewSectionRef = useRef<HTMLDivElement | null>(null);
   const detailsSectionRef = useRef<HTMLDivElement | null>(null);
   const amenitiesSectionRef = useRef<HTMLDivElement | null>(null);
@@ -91,6 +97,30 @@ const PropertyDetail = () => {
     { id: "amenities" as const, ref: amenitiesSectionRef },
     { id: "location" as const, ref: locationSectionRef },
   ];
+
+  // Mobile swipe handlers
+  const onTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: TouchEvent<HTMLDivElement>) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = (imagesArray: string[]) => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    
+    if (isLeftSwipe && mobileImageIndex < imagesArray.length - 1) {
+      setMobileImageIndex(prev => prev + 1);
+    }
+    if (isRightSwipe && mobileImageIndex > 0) {
+      setMobileImageIndex(prev => prev - 1);
+    }
+  };
 
   const scrollToSection = (target: SectionKey) => {
     const ref = sectionAnchors.find((section) => section.id === target)?.ref.current;
@@ -163,6 +193,17 @@ const PropertyDetail = () => {
     const label = typeof property?.price_display === "string" ? property.price_display.trim() : "";
     if (label) return label;
     return formatPrice(property?.price ?? undefined);
+  };
+
+  const formatSizeValue = (value?: string | number | null, unit = "sqft") => {
+    if (value === null || value === undefined) return "";
+    const raw = typeof value === "number" ? value.toString() : value.toString().trim();
+    if (!raw) return "";
+    const numeric = Number(raw.replace(/,/g, ""));
+    if (Number.isFinite(numeric) && /^[0-9.,]+$/.test(raw.replace(/\s+/g, ""))) {
+      return `${numeric.toLocaleString()} ${unit}`;
+    }
+    return raw;
   };
 
   const hasPaymentPlanContent = (value?: string | null) => {
@@ -289,102 +330,145 @@ const PropertyDetail = () => {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Main Content */}
                 <div className="lg:col-span-2 space-y-8">
-                  {/* Image Gallery */}
+                  {/* Image Gallery - Mobile Swipeable / Desktop Grid */}
                   <div className="relative">
-                    <div className="flex gap-2 h-[600px]">
-                      {/* Main Large Image - Left Side */}
-                      <div className="flex-[70] relative cursor-pointer rounded-l-xl overflow-hidden group" onClick={() => openLightbox(0)}>
-                        <img 
-                          src={images[0] || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop"} 
-                          alt={property.title} 
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                        />
+                    {/* Mobile Swipeable Gallery */}
+                    <div className="block lg:hidden">
+                      <div 
+                        className="relative h-[250px] overflow-hidden rounded-xl"
+                        onTouchStart={onTouchStart}
+                        onTouchMove={onTouchMove}
+                        onTouchEnd={() => onTouchEnd(images)}
+                      >
+                        {/* Swipeable Image */}
+                        <div 
+                          className="flex transition-transform duration-300 ease-out h-full"
+                          style={{ transform: `translateX(-${mobileImageIndex * 100}%)` }}
+                        >
+                          {images.length > 0 ? images.map((img, idx) => (
+                            <div key={idx} className="min-w-full h-full relative flex-shrink-0">
+                              <img 
+                                src={img || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop"} 
+                                alt={`${property.title} - ${idx + 1}`}
+                                className="w-full h-full object-cover"
+                                onClick={() => openLightbox(idx)}
+                              />
+                            </div>
+                          )) : (
+                            <div className="min-w-full h-full relative flex-shrink-0">
+                              <img 
+                                src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop"
+                                alt={property.title}
+                                className="w-full h-full object-cover"
+                                onClick={() => openLightbox(0)}
+                              />
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Logo Overlay */}
                         <img
                           src={TrueNesterLogo}
                           alt="TrueNester Logo"
-                          className="absolute top-2 left-1/2 -translate-x-1/2 h-14 opacity-100 pointer-events-none select-none z-20"
+                          className="absolute top-2 left-1/2 -translate-x-1/2 h-10 opacity-90 pointer-events-none select-none z-20"
                           style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}
                         />
+                        
+                        {/* Featured Badge */}
                         {property.featured && (
-                          <div className="absolute top-4 left-4 z-10">
-                            <span className="badge-featured">Featured</span>
+                          <div className="absolute top-3 left-3 z-10">
+                            <span className="badge-featured text-xs px-2 py-1">Featured</span>
                           </div>
                         )}
                         
-                        {/* Photo Count Badge on Main Image */}
+                        {/* Dot Indicators */}
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+                          {images.slice(0, Math.min(images.length, 5)).map((_, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setMobileImageIndex(idx)}
+                              className={`w-2 h-2 rounded-full transition-all ${
+                                idx === mobileImageIndex 
+                                  ? 'bg-white w-4' 
+                                  : 'bg-white/50 hover:bg-white/75'
+                              }`}
+                            />
+                          ))}
+                          {images.length > 5 && (
+                            <span className="text-white text-xs ml-1">+{images.length - 5}</span>
+                          )}
+                        </div>
+                        
+                        {/* Swipe Navigation Arrows */}
+                        {mobileImageIndex > 0 && (
+                          <button
+                            onClick={() => setMobileImageIndex(prev => prev - 1)}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-1.5 z-10"
+                          >
+                            <ChevronLeft className="h-5 w-5" />
+                          </button>
+                        )}
+                        {mobileImageIndex < images.length - 1 && (
+                          <button
+                            onClick={() => setMobileImageIndex(prev => prev + 1)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-1.5 z-10"
+                          >
+                            <ChevronRight className="h-5 w-5" />
+                          </button>
+                        )}
+                        
+                        {/* Photo Count Badge */}
                         <button 
-                          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                            e.stopPropagation();
-                            openLightbox(0);
-                          }}
-                          className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg px-4 py-2 flex items-center gap-2 hover:bg-white transition-colors z-10"
+                          onClick={() => openLightbox(mobileImageIndex)}
+                          className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-1.5 z-10"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                             <circle cx="8.5" cy="8.5" r="1.5"></circle>
                             <polyline points="21 15 16 10 5 21"></polyline>
                           </svg>
-                          <span className="font-semibold text-gray-900">{images.length || 1} Photos</span>
+                          <span className="text-white text-xs font-medium">{images.length || 1}</span>
                         </button>
-                      </div>
-
-                      {/* Right Side - Stacked Images */}
-                      <div className="flex-[30] flex flex-col gap-2">
-                        {/* Top Image - Only show if we have more than 1 image */}
-                        {images.length > 1 && (
-                          <div className="flex-1 relative cursor-pointer rounded-tr-xl overflow-hidden group" onClick={() => openLightbox(1)}>
-                            <img 
-                              src={images[1]} 
-                              alt={`${property.title} - 2`} 
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                            />
-                          </div>
-                        )}
-
-                        {/* Bottom Image with Photo Count Overlay - Only show if we have more than 2 images */}
-                        {images.length > 2 && (
-                          <div className="flex-1 relative cursor-pointer rounded-br-xl overflow-hidden group" onClick={() => openLightbox(2)}>
-                            <img 
-                              src={images[2]} 
-                              alt={`${property.title} - 3`} 
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                            />
-                            {images.length > 3 && (
-                              <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center">
-                                <span className="text-white text-3xl font-bold">+{images.length - 3} Photos</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="absolute top-4 right-4 flex gap-3 z-20">
-                      {/* Share Button */}
-                      <div className="relative">
-                        <Button 
-                          size="icon" 
-                          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                            e.stopPropagation();
-                            setShowShareMenu(!showShareMenu);
-                          }}
-                          className="h-12 w-12 rounded-full bg-transparent hover:bg-primary hover:text-white shadow-lg transition-all duration-300 hover:scale-110"
-                        >
-                          <Share2 className="h-5 w-5" />
-                        </Button>
                         
-                        {/* Share Dropdown Menu */}
+                        {/* Mobile Action Buttons */}
+                        <div className="absolute top-3 right-3 flex gap-2 z-20">
+                          <Button 
+                            size="icon"
+                            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                              e.stopPropagation();
+                              setShowShareMenu(!showShareMenu);
+                            }}
+                            className="h-9 w-9 rounded-full bg-black/30 hover:bg-black/50 text-white border-0"
+                          >
+                            <Share2 className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            size="icon"
+                            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                              e.stopPropagation();
+                              setIsFavorite(!isFavorite);
+                            }}
+                            className={`h-9 w-9 rounded-full border-0 ${
+                              isFavorite 
+                                ? 'bg-red-500 hover:bg-red-600 text-white' 
+                                : 'bg-black/30 hover:bg-black/50 text-white'
+                            }`}
+                          >
+                            <Heart className={`h-4 w-4 ${isFavorite ? 'fill-current' : ''}`} />
+                          </Button>
+                        </div>
+                        
+                        {/* Mobile Share Menu */}
                         {showShareMenu && (
-                          <div className="absolute top-14 right-0 bg-white rounded-lg shadow-2xl p-3 w-48 border border-gray-200 z-30">
+                          <div className="absolute top-14 right-3 bg-white rounded-lg shadow-2xl p-2 w-40 border border-gray-200 z-30">
                             <button
                               onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                                 e.stopPropagation();
                                 navigator.clipboard.writeText(window.location.href);
-                                alert('Link copied to clipboard!');
+                                alert('Link copied!');
                                 setShowShareMenu(false);
                               }}
-                              className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm font-medium transition-colors"
+                              className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-xs font-medium"
                             >
                               📋 Copy Link
                             </button>
@@ -394,49 +478,164 @@ const PropertyDetail = () => {
                                 window.open(`https://wa.me/?text=${encodeURIComponent(window.location.href)}`, '_blank');
                                 setShowShareMenu(false);
                               }}
-                              className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm font-medium transition-colors"
+                              className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-xs font-medium"
                             >
                               💬 WhatsApp
-                            </button>
-                            <button
-                              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                                e.stopPropagation();
-                                window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, '_blank');
-                                setShowShareMenu(false);
-                              }}
-                              className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm font-medium transition-colors"
-                            >
-                              📘 Facebook
-                            </button>
-                            <button
-                              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                                e.stopPropagation();
-                                window.open(`mailto:?subject=Check out this property&body=${encodeURIComponent(window.location.href)}`, '_blank');
-                                setShowShareMenu(false);
-                              }}
-                              className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm font-medium transition-colors"
-                            >
-                              📧 Email
                             </button>
                           </div>
                         )}
                       </div>
-                      
-                      {/* Favorite Button */}
-                      <Button 
-                        size="icon"
-                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                          e.stopPropagation();
-                          setIsFavorite(!isFavorite);
-                        }}
-                        className={`h-12 w-12 rounded-full shadow-lg transition-all duration-300 hover:scale-110 ${
-                          isFavorite 
-                            ? 'bg-red-500 hover:bg-red-600 text-white' 
-                            : 'bg-transparent hover:bg-primary hover:text-white'
-                        }`}
-                      >
-                        <Heart className={`h-5 w-5 transition-all ${isFavorite ? 'fill-current' : ''}`} />
-                      </Button>
+                    </div>
+
+                    {/* Desktop Grid Gallery */}
+                    <div className="hidden lg:block">
+                      <div className="flex gap-2 h-[600px]">
+                        {/* Main Large Image - Left Side */}
+                        <div className="flex-[70] relative cursor-pointer rounded-l-xl overflow-hidden group" onClick={() => openLightbox(0)}>
+                          <img 
+                            src={images[0] || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop"} 
+                            alt={property.title} 
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                          />
+                          <img
+                            src={TrueNesterLogo}
+                            alt="TrueNester Logo"
+                            className="absolute top-2 left-1/2 -translate-x-1/2 h-14 opacity-100 pointer-events-none select-none z-20"
+                            style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}
+                          />
+                          {property.featured && (
+                            <div className="absolute top-4 left-4 z-10">
+                              <span className="badge-featured">Featured</span>
+                            </div>
+                          )}
+                          
+                          {/* Photo Count Badge on Main Image */}
+                          <button 
+                            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                              e.stopPropagation();
+                              openLightbox(0);
+                            }}
+                            className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg px-4 py-2 flex items-center gap-2 hover:bg-white transition-colors z-10"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                              <polyline points="21 15 16 10 5 21"></polyline>
+                            </svg>
+                            <span className="font-semibold text-gray-900">{images.length || 1} Photos</span>
+                          </button>
+                        </div>
+
+                        {/* Right Side - Stacked Images */}
+                        <div className="flex-[30] flex flex-col gap-2">
+                          {/* Top Image - Only show if we have more than 1 image */}
+                          {images.length > 1 && (
+                            <div className="flex-1 relative cursor-pointer rounded-tr-xl overflow-hidden group" onClick={() => openLightbox(1)}>
+                              <img 
+                                src={images[1]} 
+                                alt={`${property.title} - 2`} 
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                              />
+                            </div>
+                          )}
+
+                          {/* Bottom Image with Photo Count Overlay - Only show if we have more than 2 images */}
+                          {images.length > 2 && (
+                            <div className="flex-1 relative cursor-pointer rounded-br-xl overflow-hidden group" onClick={() => openLightbox(2)}>
+                              <img 
+                                src={images[2]} 
+                                alt={`${property.title} - 3`} 
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                              />
+                              {images.length > 3 && (
+                                <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center">
+                                  <span className="text-white text-3xl font-bold">+{images.length - 3} Photos</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Desktop Action Buttons */}
+                      <div className="absolute top-4 right-4 flex gap-3 z-20">
+                        {/* Share Button */}
+                        <div className="relative">
+                          <Button 
+                            size="icon" 
+                            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                              e.stopPropagation();
+                              setShowShareMenu(!showShareMenu);
+                            }}
+                            className="h-12 w-12 rounded-full bg-transparent hover:bg-primary hover:text-white shadow-lg transition-all duration-300 hover:scale-110"
+                          >
+                            <Share2 className="h-5 w-5" />
+                          </Button>
+                          
+                          {/* Share Dropdown Menu */}
+                          {showShareMenu && (
+                            <div className="absolute top-14 right-0 bg-white rounded-lg shadow-2xl p-3 w-48 border border-gray-200 z-30">
+                              <button
+                                onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                                  e.stopPropagation();
+                                  navigator.clipboard.writeText(window.location.href);
+                                  alert('Link copied to clipboard!');
+                                  setShowShareMenu(false);
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm font-medium transition-colors"
+                              >
+                                📋 Copy Link
+                              </button>
+                              <button
+                                onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                                  e.stopPropagation();
+                                  window.open(`https://wa.me/?text=${encodeURIComponent(window.location.href)}`, '_blank');
+                                  setShowShareMenu(false);
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm font-medium transition-colors"
+                              >
+                                💬 WhatsApp
+                              </button>
+                              <button
+                                onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                                  e.stopPropagation();
+                                  window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, '_blank');
+                                  setShowShareMenu(false);
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm font-medium transition-colors"
+                              >
+                                📘 Facebook
+                              </button>
+                              <button
+                                onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                                  e.stopPropagation();
+                                  window.open(`mailto:?subject=Check out this property&body=${encodeURIComponent(window.location.href)}`, '_blank');
+                                  setShowShareMenu(false);
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm font-medium transition-colors"
+                              >
+                                📧 Email
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Favorite Button */}
+                        <Button 
+                          size="icon"
+                          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                            e.stopPropagation();
+                            setIsFavorite(!isFavorite);
+                          }}
+                          className={`h-12 w-12 rounded-full shadow-lg transition-all duration-300 hover:scale-110 ${
+                            isFavorite 
+                              ? 'bg-red-500 hover:bg-red-600 text-white' 
+                              : 'bg-transparent hover:bg-primary hover:text-white'
+                          }`}
+                        >
+                          <Heart className={`h-5 w-5 transition-all ${isFavorite ? 'fill-current' : ''}`} />
+                        </Button>
+                      </div>
                     </div>
                   </div>
 
@@ -497,7 +696,7 @@ const PropertyDetail = () => {
                           <Square className="h-5 w-5 text-primary" />
                           <div>
                             <div className="text-sm text-muted-foreground">Size</div>
-                            <div className="font-semibold">{Number(property.size_sqft).toLocaleString()} sqft</div>
+                            <div className="font-semibold">{formatSizeValue(property.size_sqft)}</div>
                           </div>
                         </div>
                       )}
@@ -1198,85 +1397,134 @@ const PropertyDetail = () => {
 
         {/* Lightbox Modal */}
         {lightboxOpen && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center" onWheel={handleWheelZoom}>
+          <div 
+            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4" 
+            onWheel={handleWheelZoom}
+            onTouchStart={(e) => {
+              const touch = e.touches[0];
+              setTouchStart(touch.clientX);
+            }}
+            onTouchEnd={(e) => {
+              const touch = e.changedTouches[0];
+              setTouchEnd(touch.clientX);
+              if (!touchStart || !touch.clientX) return;
+              const distance = touchStart - touch.clientX;
+              const minDistance = 50;
+              
+              if (Math.abs(distance) > minDistance) {
+                if (distance > 0 && currentImageIndex < images.length - 1) {
+                  nextImage();
+                } else if (distance < 0 && currentImageIndex > 0) {
+                  prevImage();
+                }
+              }
+            }}
+          >
             {/* Close Button */}
             <button
               onClick={closeLightbox}
-              className="absolute top-4 right-4 z-50 text-white hover:text-gray-300 transition-colors"
+              className="absolute top-2 right-2 sm:top-4 sm:right-4 z-50 text-white hover:text-gray-300 transition-colors p-1 sm:p-2 bg-black/40 hover:bg-black/60 rounded-full"
               aria-label="Close"
             >
-              <X className="h-8 w-8" />
+              <X className="h-6 w-6 sm:h-8 sm:w-8" />
             </button>
 
             {/* Image Counter */}
-            <div className="absolute top-4 left-4 z-50 text-white bg-black/40 px-3 py-1 rounded-md text-sm">
+            <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-50 text-white bg-black/60 px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm font-semibold">
               {currentImageIndex + 1} / {images.length || 1}
             </div>
 
-            {/* Previous Button */}
+            {/* Previous Button - Responsive */}
             <button
               onClick={prevImage}
-              className="absolute left-4 z-50 text-white hover:text-gray-300 transition-colors p-2 bg-black/30 rounded-full hover:bg-black/50"
+              className="absolute left-1 sm:left-4 z-50 text-white hover:text-gray-300 transition-colors p-1 sm:p-2 bg-black/40 hover:bg-black/60 rounded-full active:scale-90 transform transition-transform"
               aria-label="Previous"
             >
-              <ChevronLeft className="h-10 w-10" />
+              <ChevronLeft className="h-6 w-6 sm:h-10 sm:w-10" />
             </button>
 
-            {/* Next Button */}
+            {/* Next Button - Responsive */}
             <button
               onClick={nextImage}
-              className="absolute right-4 z-50 text-white hover:text-gray-300 transition-colors p-2 bg-black/30 rounded-full hover:bg-black/50"
+              className="absolute right-1 sm:right-4 z-50 text-white hover:text-gray-300 transition-colors p-1 sm:p-2 bg-black/40 hover:bg-black/60 rounded-full active:scale-90 transform transition-transform"
               aria-label="Next"
             >
-              <ChevronRight className="h-10 w-10" />
+              <ChevronRight className="h-6 w-6 sm:h-10 sm:w-10" />
             </button>
 
             {/* Current Image with Zoom & Watermark */}
-            <div className="w-full h-full flex items-center justify-center p-4 select-none" onDoubleClick={resetZoom}>
-              <div className="relative">
+            <div className="w-full h-full flex items-center justify-center select-none" onDoubleClick={resetZoom}>
+              <div className="relative flex items-center justify-center max-h-full max-w-full">
                 <img
                   src={images[currentImageIndex] || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop"}
                   alt={`${property?.title || "Property"} - Image ${currentImageIndex + 1}`}
                   style={{ transform: `scale(${zoom})`, transition: 'transform 0.15s ease-out' }}
-                  className="max-w-[80vw] max-h-[80vh] object-contain"
+                  className="max-w-[95vw] sm:max-w-[90vw] max-h-[85vh] sm:max-h-[80vh] object-contain rounded-lg"
                   draggable={false}
                 />
                 <img
                   src={TrueNesterLogo}
                   alt="TrueNester Logo"
-                  className="absolute top-4 right-4 h-16 opacity-25 pointer-events-none"
+                  className="absolute top-2 right-2 sm:top-4 sm:right-4 h-12 sm:h-16 opacity-20 pointer-events-none"
                   draggable={false}
                 />
                 {zoom > 1 && (
-                  <div className="absolute bottom-2 left-2 text-xs bg-black/40 text-white px-2 py-1 rounded-md">
+                  <div className="absolute bottom-2 left-2 text-[10px] sm:text-xs bg-black/60 text-white px-2 py-1 rounded-md font-semibold">
                     Zoom: {Math.round(zoom * 100)}%
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Mobile Hint for Swipe */}
+            <div className="absolute bottom-2 sm:hidden text-white text-xs text-center bg-black/40 px-3 py-1 rounded-full">
+              Swipe to navigate • Double tap to zoom
             </div>
           </div>
         )}
 
         {/* Floor Plan Lightbox Modal */}
         {floorPlanLightboxOpen && property?.floor_plans && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center" onWheel={handleFloorPlanWheel}>
+          <div 
+            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4" 
+            onWheel={handleFloorPlanWheel}
+            onTouchStart={(e) => {
+              const touch = e.touches[0];
+              setTouchStart(touch.clientX);
+            }}
+            onTouchEnd={(e) => {
+              const touch = e.changedTouches[0];
+              setTouchEnd(touch.clientX);
+              if (!touchStart || !touch.clientX) return;
+              const distance = touchStart - touch.clientX;
+              const minDistance = 50;
+              
+              if (Math.abs(distance) > minDistance && property.floor_plans.length > 1) {
+                if (distance > 0 && selectedFloorPlan < property.floor_plans.length - 1) {
+                  nextFloorPlan();
+                } else if (distance < 0 && selectedFloorPlan > 0) {
+                  prevFloorPlan();
+                }
+              }
+            }}
+          >
             {/* Close Button */}
             <button
               onClick={closeFloorPlanLightbox}
-              className="absolute top-4 right-4 z-50 text-white hover:text-gray-300 transition-colors"
+              className="absolute top-2 right-2 sm:top-4 sm:right-4 z-50 text-white hover:text-gray-300 transition-colors p-1 sm:p-2 bg-black/40 hover:bg-black/60 rounded-full"
               aria-label="Close"
             >
-              <X className="h-8 w-8" />
+              <X className="h-6 w-6 sm:h-8 sm:w-8" />
             </button>
 
-            {/* Floor Plan Title */}
-            <div className="absolute top-4 left-4 z-50 text-white bg-black/40 px-4 py-2 rounded-md">
-              <div className="text-lg font-bold">{property.floor_plans[selectedFloorPlan]?.title}</div>
-              <div className="text-sm text-gray-300">{property.floor_plans[selectedFloorPlan]?.size}</div>
+            {/* Floor Plan Title - Responsive */}
+            <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-50 text-white bg-black/60 px-2 sm:px-4 py-1 sm:py-2 rounded-md max-w-[60vw] sm:max-w-none">
+              <div className="text-sm sm:text-lg font-bold truncate">{property.floor_plans[selectedFloorPlan]?.title}</div>
+              <div className="text-xs sm:text-sm text-gray-300 truncate">{property.floor_plans[selectedFloorPlan]?.size}</div>
             </div>
 
-            {/* Plan Counter */}
-            <div className="absolute top-20 left-4 z-50 text-white bg-black/40 px-3 py-1 rounded-md text-sm">
+            {/* Plan Counter - Responsive */}
+            <div className="absolute top-16 sm:top-20 left-2 sm:left-4 z-50 text-white bg-black/60 px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm font-semibold">
               {selectedFloorPlan + 1} / {property.floor_plans.length}
             </div>
 
@@ -1284,10 +1532,10 @@ const PropertyDetail = () => {
             {property.floor_plans.length > 1 && (
               <button
                 onClick={prevFloorPlan}
-                className="absolute left-4 z-50 text-white hover:text-gray-300 transition-colors p-2 bg-black/30 rounded-full hover:bg-black/50"
+                className="absolute left-1 sm:left-4 z-50 text-white hover:text-gray-300 transition-colors p-1 sm:p-2 bg-black/40 hover:bg-black/60 rounded-full active:scale-90 transform transition-transform"
                 aria-label="Previous"
               >
-                <ChevronLeft className="h-10 w-10" />
+                <ChevronLeft className="h-6 w-6 sm:h-10 sm:w-10" />
               </button>
             )}
 
@@ -1295,21 +1543,21 @@ const PropertyDetail = () => {
             {property.floor_plans.length > 1 && (
               <button
                 onClick={nextFloorPlan}
-                className="absolute right-4 z-50 text-white hover:text-gray-300 transition-colors p-2 bg-black/30 rounded-full hover:bg-black/50"
+                className="absolute right-1 sm:right-4 z-50 text-white hover:text-gray-300 transition-colors p-1 sm:p-2 bg-black/40 hover:bg-black/60 rounded-full active:scale-90 transform transition-transform"
                 aria-label="Next"
               >
-                <ChevronRight className="h-10 w-10" />
+                <ChevronRight className="h-6 w-6 sm:h-10 sm:w-10" />
               </button>
             )}
 
             {/* Current Floor Plan with Zoom */}
-            <div className="w-full h-full flex items-center justify-center p-4 select-none" onDoubleClick={resetFloorPlanZoom}>
-              <div className="relative">
+            <div className="w-full h-full flex items-center justify-center select-none" onDoubleClick={resetFloorPlanZoom}>
+              <div className="relative flex items-center justify-center max-h-full max-w-full">
                 <img
                   src={property.floor_plans[selectedFloorPlan]?.image || "https://placehold.co/600x400?text=Floor+Plan+Not+Available"}
                   alt={property.floor_plans[selectedFloorPlan]?.title || "Floor Plan"}
                   style={{ transform: `scale(${floorPlanZoom})`, transition: 'transform 0.15s ease-out' }}
-                  className="max-w-[80vw] max-h-[80vh] object-contain"
+                  className="max-w-[95vw] sm:max-w-[90vw] max-h-[85vh] sm:max-h-[80vh] object-contain rounded-lg"
                   draggable={false}
                   onError={(e) => {
                     console.error('Floor plan image failed to load:', property.floor_plans[selectedFloorPlan]?.image);
@@ -1319,16 +1567,23 @@ const PropertyDetail = () => {
                 <img
                   src={TrueNesterLogo}
                   alt="TrueNester Logo"
-                  className="absolute top-4 right-4 h-16 opacity-25 pointer-events-none"
+                  className="absolute top-2 right-2 sm:top-4 sm:right-4 h-12 sm:h-16 opacity-20 pointer-events-none"
                   draggable={false}
                 />
                 {floorPlanZoom > 1 && (
-                  <div className="absolute bottom-2 left-2 text-xs bg-black/40 text-white px-2 py-1 rounded-md">
+                  <div className="absolute bottom-2 left-2 text-[10px] sm:text-xs bg-black/60 text-white px-2 py-1 rounded-md font-semibold">
                     Zoom: {Math.round(floorPlanZoom * 100)}%
                   </div>
                 )}
               </div>
             </div>
+
+            {/* Mobile Hint for Swipe */}
+            {property.floor_plans.length > 1 && (
+              <div className="absolute bottom-2 sm:hidden text-white text-xs text-center bg-black/40 px-3 py-1 rounded-full">
+                Swipe to navigate • Double tap to zoom
+              </div>
+            )}
           </div>
         )}
 

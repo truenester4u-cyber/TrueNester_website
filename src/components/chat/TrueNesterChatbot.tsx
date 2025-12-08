@@ -106,6 +106,7 @@ const brand = {
 };
 
 const proactivePopupSessionKey = "tnr_proactive_popup_seen";
+const chatbotClosedSessionKey = "tnr_chatbot_closed";
 
 const createId = () => globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
 
@@ -994,15 +995,24 @@ const TrueNesterChatbot = () => {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    
+    // Check if user already closed the chatbot this session - don't show popup
+    const chatbotClosed = sessionStorage.getItem(chatbotClosedSessionKey);
+    if (chatbotClosed) return;
+    
     const seen = sessionStorage.getItem(proactivePopupSessionKey);
     if (seen) return;
     popupTimerRef.current = setTimeout(() => {
+      // Double-check chatbot wasn't closed while timer was running
+      if (sessionStorage.getItem(chatbotClosedSessionKey)) return;
       setShowProactivePrompt(true);
       trackAnalytics("popupViews");
       sessionStorage.setItem(proactivePopupSessionKey, "1");
     }, 6000);
 
     const handleScrollTrigger = () => {
+      // Don't show if chatbot was closed
+      if (sessionStorage.getItem(chatbotClosedSessionKey)) return;
       if (!showProactivePrompt) {
         setShowProactivePrompt(true);
         trackAnalytics("popupViews");
@@ -1013,6 +1023,8 @@ const TrueNesterChatbot = () => {
     window.addEventListener("scroll", handleScrollTrigger, { once: true });
 
     const handleMouseLeave = (event: MouseEvent) => {
+      // Don't show if chatbot was closed
+      if (sessionStorage.getItem(chatbotClosedSessionKey)) return;
       if (event.clientY <= 0) {
         setShowProactivePrompt(true);
         trackAnalytics("popupViews");
@@ -1261,11 +1273,63 @@ const TrueNesterChatbot = () => {
           }, 1500 * attempt);
           return;
         }
-        setLeadSyncStatus("error");
-        appendBotMessage(
-          "I captured your profile but couldn't sync it to our advisors automatically. I'll keep retrying and also alerted a human.",
-          { tone: "warning" }
-        );
+        
+        // Fallback: Save directly to Supabase if API failed after all retries
+        try {
+          console.log("API failed, falling back to direct Supabase save...");
+          const { data: conversation, error: convError } = await supabase
+            .from("conversations")
+            .insert({
+              id: payload.conversationId,
+              customer_id: payload.customerId,
+              customer_name: finalLead.name,
+              customer_phone: finalLead.phone,
+              customer_email: finalLead.email || null,
+              intent: payload.intent || "browse",
+              budget: finalLead.budget || null,
+              preferred_area: finalLead.locations?.join(", ") || null,
+              lead_score: payload.leadScore?.value || 50,
+              lead_quality: payload.leadScore?.tier || "warm",
+              status: "new",
+              tags: ["chatbot", "web"],
+              metadata: {
+                analytics: payload.analytics,
+                visitorProfile: payload.visitorProfile,
+                profileCompletion: payload.profileCompletion,
+              },
+            })
+            .select()
+            .single();
+
+          if (convError) throw convError;
+
+          // Save messages
+          const messagesToSave = payload.messages.map((msg) => ({
+            conversation_id: payload.conversationId,
+            sender: msg.sender,
+            message_text: msg.messageText,
+            message_type: msg.messageType,
+            timestamp: msg.timestamp,
+            metadata: msg.metadata || {},
+          }));
+
+          const { error: msgError } = await supabase
+            .from("chat_messages")
+            .insert(messagesToSave);
+
+          if (msgError) throw msgError;
+
+          setSubmittedConversationId(conversation.id);
+          setLeadSyncStatus("success");
+          console.log("✅ Supabase fallback successful!");
+        } catch (fallbackError) {
+          console.error("Supabase fallback also failed:", fallbackError);
+          setLeadSyncStatus("error");
+          appendBotMessage(
+            "I captured your profile but couldn't sync it to our advisors automatically. I'll keep retrying and also alerted a human.",
+            { tone: "warning" }
+          );
+        }
       }
     },
     [

@@ -548,7 +548,12 @@ const PropertyForm = () => {
 
       const numericPrice = formData.price ? parseFloat(formData.price) : null;
       const propertyTypeValue = selectedPropertyTypes.join(" | ");
-      const propertyData = {
+      const normalizeText = (value: string) => {
+        const text = (value ?? "").toString().trim();
+        return text || null;
+      };
+
+      const propertyData: Record<string, any> = {
         title: formData.title,
         slug: formData.slug,
         description: formData.description,
@@ -559,10 +564,10 @@ const PropertyForm = () => {
         location: formData.location,
         city: formData.city,
         area: formData.area || null,
-        bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : null,
-        bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : null,
-        size_sqft: formData.size_sqft ? parseFloat(formData.size_sqft) : null,
-        size_sqm: formData.size_sqm ? parseFloat(formData.size_sqm) : null,
+        bedrooms: normalizeText(formData.bedrooms),
+        bathrooms: normalizeText(formData.bathrooms),
+        size_sqft: normalizeText(formData.size_sqft),
+        size_sqm: normalizeText(formData.size_sqm),
         features: formData.features,
         amenities: formData.amenities,
         images: images,
@@ -574,7 +579,7 @@ const PropertyForm = () => {
         parking_spaces: formData.parking_spaces ? parseInt(formData.parking_spaces) : null,
         floor_number: formData.floor_number ? parseInt(formData.floor_number) : null,
         building_description: formData.building_description || null,
-          plot_area: formData.plot_area || null,
+        plot_area: formData.plot_area || null,
         unit_types: formData.unit_types,
         agent_name: formData.agent_name || null,
         agent_phone: formData.agent_phone || null,
@@ -590,7 +595,7 @@ const PropertyForm = () => {
         handover_date: formData.handover_date || null,
         floor_plans: formData.floor_plans,
         payment_plan_table: formData.payment_plan_table,
-        total_units: formData.total_units ? parseInt(formData.total_units) : null,
+        total_units: normalizeText(formData.total_units),
       };
 
       console.log('💾 ADMIN: Saving property with floor_plans:', formData.floor_plans);
@@ -601,7 +606,7 @@ const PropertyForm = () => {
       if (id) {
         const { data: savedData, error } = await supabase
           .from("properties")
-          .update(propertyData)
+          .update(propertyData as any)
           .eq("id", id)
           .select();
 
@@ -617,7 +622,7 @@ const PropertyForm = () => {
           description: "Property updated successfully",
         });
       } else {
-        const { data: savedData, error } = await supabase.from("properties").insert([propertyData]).select();
+        const { data: savedData, error } = await supabase.from("properties").insert([propertyData as any]).select();
 
         if (error) {
           console.error('❌ ADMIN: Error creating:', error);

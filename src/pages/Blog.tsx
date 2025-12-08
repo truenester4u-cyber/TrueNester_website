@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import Layout from "@/components/Layout";
-import { Calendar, User, ArrowRight } from "lucide-react";
+import { Calendar, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,7 +10,7 @@ interface BlogPost {
   id: string;
   title: string;
   excerpt: string;
-  image_url: string | null;
+  featured_image: string | null;
   created_at: string;
   author_name: string;
   category: string;
@@ -103,44 +103,42 @@ const Blog = () => {
               <>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                   {blogPosts.map((post) => (
-                    <Card key={post.id} className="group overflow-hidden hover:shadow-lg transition-all duration-300">
-                      <div className="aspect-video overflow-hidden">
-                        <img
-                          src={post.image_url || "/placeholder.svg"}
-                          alt={post.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      </div>
-                      <div className="p-6">
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-                          <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-semibold">
-                            {post.category}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4" />
-                            {new Date(post.created_at).toLocaleDateString()}
+                    <Link
+                      key={post.id}
+                      to={`/blog/${post.slug}`}
+                      className="block h-full group"
+                    >
+                      <Card className="h-full overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-muted/40">
+                        <div className="aspect-video overflow-hidden bg-muted">
+                          <img
+                            src={post.featured_image || "/placeholder.svg"}
+                            alt={post.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                        </div>
+                        <div className="p-6 flex flex-col gap-3">
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-semibold">
+                              {post.category}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-4 w-4" />
+                              {new Date(post.created_at).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <h3 className="text-xl font-bold leading-tight group-hover:text-primary transition-colors line-clamp-2">
+                            {post.title}
+                          </h3>
+                          <p className="text-muted-foreground line-clamp-3">
+                            {post.excerpt}
+                          </p>
+                          <div className="flex items-center gap-2 text-primary font-semibold">
+                            <span>Read the story</span>
+                            <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                           </div>
                         </div>
-                        <h3 className="text-xl font-bold mb-3 group-hover:text-primary transition-colors line-clamp-2">
-                          {post.title}
-                        </h3>
-                        <p className="text-muted-foreground mb-4 line-clamp-3">
-                          {post.excerpt}
-                        </p>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <User className="h-4 w-4" />
-                            {post.author_name}
-                          </div>
-                          <Link to={`/blog/${post.slug}`}>
-                            <Button variant="ghost" size="sm" className="group/btn">
-                              Read More
-                              <ArrowRight className="h-4 w-4 ml-2 group-hover/btn:translate-x-1 transition-transform" />
-                            </Button>
-                          </Link>
-                        </div>
-                      </div>
-                    </Card>
+                      </Card>
+                    </Link>
                   ))}
                 </div>
               </>

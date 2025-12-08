@@ -48,7 +48,7 @@ const Footer = () => {
                 href="#" 
                 onClick={(e) => {
                   e.preventDefault();
-                  handleSocialClick("instagram", "https://www.instagram.com/truenester.ae", "instagram://user/truenester.ae");
+                  handleSocialClick("instagram", "https://www.instagram.com/truenester.ae/", "instagram://user/truenester.ae");
                 }}
                 className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center hover:bg-primary transition-colors"
               >
@@ -145,7 +145,7 @@ const Footer = () => {
               </li>
               <li className="flex items-center gap-2 text-sm text-gray-300">
                 <Mail className="h-5 w-5 text-primary flex-shrink-0" />
-                <span>info@truenester.com  truenester4u@gmail.com</span>
+                <span>info@truenester.com <br /> truenester4u@gmail.com</span>
               </li>
             </ul>
           </div>
@@ -154,7 +154,7 @@ const Footer = () => {
         <div className="mt-8 pt-8 border-t border-gray-700">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-gray-400">
-              © 2025 TRUE NESTER. All rights reserved. Developed by <span className="text-primary font-semibold">True </span>
+              © 2025 TRUE NESTER. All rights reserved. Developed by <span className="text-primary font-semibold">TRUE NESTER</span>
             </p>
             <div className="flex gap-6 text-sm text-gray-400">
               <a href="#" className="hover:text-primary transition-colors">

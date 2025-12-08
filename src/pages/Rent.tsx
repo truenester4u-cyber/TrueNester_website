@@ -181,13 +181,20 @@ const Rent = () => {
 
     // Size filter - only apply if user moved sliders
     if (minSize !== 500 || maxSize !== 10000) {
-      const propSize = property.size_sqft ?? 0;
+      const propSize = parseSqftValue(property.size_sqft);
       // Skip properties with no size or apply range filter
       if (propSize === 0 || propSize < minSize || propSize > maxSize) return false;
     }
 
     return true;
   });
+
+  const parseSqftValue = (value: string | number | null | undefined) => {
+    if (typeof value === "number") return value;
+    const text = (value ?? "").toString().replace(/,/g, "");
+    const match = text.match(/([0-9]+(\.\d+)?)/);
+    return match ? parseFloat(match[1]) : 0;
+  };
 
   const formatPrice = (price?: number) =>
     typeof price === "number"
@@ -206,6 +213,17 @@ const Rent = () => {
     const locationLabel = typeof property.location === "string" ? property.location.trim() : "";
     if (locationLabel) return locationLabel;
     return property.city || "";
+  };
+
+  const formatSizeValue = (value?: string | number | null) => {
+    if (value === null || value === undefined) return "";
+    const raw = typeof value === "number" ? value.toString() : value.toString().trim();
+    if (!raw) return "";
+    const numeric = Number(raw.replace(/,/g, ""));
+    if (Number.isFinite(numeric) && /^[0-9.,]+$/.test(raw.replace(/\s+/g, ""))) {
+      return `${numeric.toLocaleString()} sqft`;
+    }
+    return raw;
   };
 
   // Check if any filters are active
@@ -609,7 +627,7 @@ const Rent = () => {
                                 {property.size_sqft && (
                                   <div className="flex items-center gap-1.5">
                                     <Square className="h-5 w-5 text-primary" />
-                                    <span className="font-medium">{Number(property.size_sqft).toLocaleString()} sqft</span>
+                                    <span className="font-medium">{formatSizeValue(property.size_sqft)}</span>
                                   </div>
                                 )}
                               </div>

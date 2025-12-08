@@ -149,7 +149,7 @@ const HeroSection = () => {
   };
 
   return (
-    <section className="relative min-h-[500px] sm:min-h-[600px] md:h-[90vh] md:max-h-[700px] flex items-center justify-center overflow-hidden mt-[15px] py-6 sm:py-8 md:py-0">
+    <section className="relative min-h-[480px] sm:min-h-[600px] md:h-[90vh] md:max-h-[700px] flex items-center justify-center overflow-hidden pt-16 sm:pt-6 md:pt-[15px] pb-4 sm:pb-8 md:pb-0">
       {/* Background Video with Overlay */}
       <div className="absolute inset-0">
         <video
@@ -167,30 +167,30 @@ const HeroSection = () => {
             className="w-full h-full object-cover"
           />
         </video>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/60" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/70" />
       </div>
 
       {/* Content */}
       <div className="relative z-10 w-full px-3 sm:px-4 md:px-6 flex flex-col items-center">
         {/* Title and Description */}
-        <div className="text-center mb-4 sm:mb-6 md:mb-8 max-w-3xl">
-          <h1 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-2 sm:mb-3 md:mb-4 animate-fade-in font-heading leading-tight">
+        <div className="text-center mb-3 sm:mb-6 md:mb-8 max-w-3xl">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-0 sm:mb-2 md:mb-3 animate-fade-in font-heading leading-none">
             Find Your Dream Property
             <br />
-            <span className="text-gradient-accent block mt-1 sm:mt-2">in Dubai</span>
+            <span className="text-gradient-accent block mt-0 sm:mt-1">in Dubai</span>
           </h1>
-          <p className="text-xs sm:text-sm md:text-base lg:text-lg text-white/90 animate-slide-up px-2">
+          <p className="text-[11px] sm:text-sm md:text-base lg:text-lg text-white/90 animate-slide-up px-2">
             Connect with Dubai's finest developers and discover luxury properties tailored for Indian investors
           </p>
         </div>
 
         {/* Search Widget - Fully Responsive */}
-        <div className="w-full max-w-2xl sm:max-w-3xl lg:max-w-[40rem] xl:max-w-[42rem] bg-white rounded-lg sm:rounded-xl md:rounded-2xl shadow-2xl p-2 sm:p-3 md:p-4 animate-slide-up">
+        <div className="w-full max-w-xl sm:max-w-2xl lg:max-w-[38rem] xl:max-w-[40rem] bg-white rounded-lg sm:rounded-xl md:rounded-2xl shadow-2xl p-2 sm:p-3 md:p-4 animate-slide-up">
           {/* Row 1: Tab Navigation - Fully responsive */}
-          <div className="flex flex-wrap gap-2 sm:gap-3 items-center mb-2 sm:mb-3">
+          <div className="flex flex-wrap gap-1.5 sm:gap-3 items-center mb-1.5 sm:mb-3">
             <button
               onClick={() => setActiveTab("buy")}
-              className={`py-1.5 sm:py-2 px-3 sm:px-4 rounded-lg font-semibold text-xs sm:text-sm transition-all duration-300 flex-shrink-0 ${
+              className={`py-1 sm:py-2 px-2.5 sm:px-4 rounded-md sm:rounded-lg font-semibold text-[11px] sm:text-sm transition-all duration-300 flex-shrink-0 ${
                 activeTab === "buy"
                   ? "bg-green-100 text-green-700"
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -200,7 +200,7 @@ const HeroSection = () => {
             </button>
             <button
               onClick={() => setActiveTab("rent")}
-              className={`py-1.5 sm:py-2 px-3 sm:px-4 rounded-lg font-semibold text-xs sm:text-sm transition-all duration-300 flex-shrink-0 ${
+              className={`py-1 sm:py-2 px-2.5 sm:px-4 rounded-md sm:rounded-lg font-semibold text-[11px] sm:text-sm transition-all duration-300 flex-shrink-0 ${
                 activeTab === "rent"
                   ? "bg-green-100 text-green-700"
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -210,7 +210,7 @@ const HeroSection = () => {
             </button>
             <button
               onClick={() => setActiveTab("offplan")}
-              className={`py-1.5 sm:py-2 px-3 sm:px-4 rounded-lg font-semibold text-xs sm:text-sm transition-all duration-300 flex-shrink-0 ${
+              className={`py-1 sm:py-2 px-2.5 sm:px-4 rounded-md sm:rounded-lg font-semibold text-[11px] sm:text-sm transition-all duration-300 flex-shrink-0 ${
                 activeTab === "offplan"
                   ? "bg-green-100 text-green-700"
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -221,10 +221,10 @@ const HeroSection = () => {
           </div>
 
           {/* Row 2: Location Field - Stacks on mobile */}
-          <div className="mb-2 sm:mb-3">
+          <div className="mb-1.5 sm:mb-3">
             <div className="relative" ref={locationInputRef}>
-              <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 border-2 border-gray-200 rounded-lg sm:rounded-xl hover:border-gray-300 focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/10 transition-all duration-200 bg-white">
-                <MapPin className="h-4 sm:h-5 w-4 sm:w-5 text-primary flex-shrink-0" />
+              <div className="flex items-center gap-1.5 sm:gap-3 px-2.5 sm:px-4 py-1.5 sm:py-3 border border-gray-200 rounded-md sm:rounded-xl hover:border-gray-300 focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/10 transition-all duration-200 bg-white">
+                <MapPin className="h-3.5 sm:h-5 w-3.5 sm:w-5 text-primary flex-shrink-0" />
                 <Input
                   type="text"
                   placeholder="Enter location"
@@ -234,7 +234,7 @@ const HeroSection = () => {
                     setShowLocationSuggestions(true);
                   }}
                   onKeyPress={handleKeyPress}
-                  className="border-0 focus:ring-0 focus:outline-none p-0 flex-1 text-xs sm:text-sm bg-white placeholder:text-gray-400"
+                  className="border-0 focus:ring-0 focus:outline-none p-0 flex-1 text-[11px] sm:text-sm h-7 sm:h-auto bg-white placeholder:text-gray-400"
                   autoComplete="off"
                 />
                 {location && (
@@ -286,21 +286,21 @@ const HeroSection = () => {
           </div>
 
           {/* Row 3: Search Button - Full width on mobile */}
-          <div className="mb-2 sm:mb-3">
+          <div className="mb-1.5 sm:mb-3">
             <Button
               onClick={handleSearch}
-              className="w-full bg-green-500 hover:bg-green-600 text-white py-2 sm:py-2.5 rounded-lg sm:rounded-lg font-semibold text-xs sm:text-sm h-auto"
+              className="w-full bg-green-500 hover:bg-green-600 text-white py-1.5 sm:py-2.5 rounded-md sm:rounded-lg font-semibold text-[11px] sm:text-sm h-auto"
             >
               Search Properties
             </Button>
           </div>
 
           {/* Row 4: Filter Options - Grid layout, responsive */}
-          <div className="border-t border-gray-100 pt-2 sm:pt-3">
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+          <div className="border-t border-gray-100 pt-1.5 sm:pt-3">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-1.5 sm:gap-3">
               {/* Property Type */}
               <Select value={propertyType} onValueChange={setPropertyType}>
-                <SelectTrigger className="h-9 sm:h-10 text-xs sm:text-sm border rounded-lg">
+                <SelectTrigger className="h-8 sm:h-10 text-[10px] sm:text-sm border rounded-md sm:rounded-lg px-2 sm:px-3">
                   <SelectValue placeholder="Property Type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -314,7 +314,7 @@ const HeroSection = () => {
 
               {/* Beds & Baths */}
               <Select value={bedrooms} onValueChange={setBedrooms}>
-                <SelectTrigger className="h-9 sm:h-10 text-xs sm:text-sm border rounded-lg">
+                <SelectTrigger className="h-8 sm:h-10 text-[10px] sm:text-sm border rounded-md sm:rounded-lg px-2 sm:px-3">
                   <SelectValue placeholder="Bedrooms" />
                 </SelectTrigger>
                 <SelectContent>
@@ -329,7 +329,7 @@ const HeroSection = () => {
 
               {/* Min Price */}
               <Select value={minPrice} onValueChange={setMinPrice}>
-                <SelectTrigger className="h-9 sm:h-10 text-xs sm:text-sm border rounded-lg">
+                <SelectTrigger className="h-8 sm:h-10 text-[10px] sm:text-sm border rounded-md sm:rounded-lg px-2 sm:px-3">
                   <SelectValue placeholder="Min Price" />
                 </SelectTrigger>
                 <SelectContent>
@@ -342,7 +342,7 @@ const HeroSection = () => {
 
               {/* Max Price */}
               <Select value={maxPrice} onValueChange={setMaxPrice}>
-                <SelectTrigger className="h-9 sm:h-10 text-xs sm:text-sm border rounded-lg">
+                <SelectTrigger className="h-8 sm:h-10 text-[10px] sm:text-sm border rounded-md sm:rounded-lg px-2 sm:px-3">
                   <SelectValue placeholder="Max Price" />
                 </SelectTrigger>
                 <SelectContent>

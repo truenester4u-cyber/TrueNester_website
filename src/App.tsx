@@ -11,6 +11,7 @@ import Sell from "./pages/Sell";
 import About from "./pages/About";
 import Locations from "./pages/Locations";
 import Blog from "./pages/Blog";
+import BlogPostDetail from "./pages/BlogPostDetail";
 import Contact from "./pages/Contact";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import PropertyDetail from "./pages/PropertyDetail";
@@ -22,6 +23,7 @@ import AdminLocations from "./pages/admin/Locations";
 import LocationForm from "./pages/admin/LocationForm";
 import BlogPosts from "./pages/admin/BlogPosts";
 import BlogPostForm from "./pages/admin/BlogPostForm";
+import Settings from "./pages/admin/Settings";
 import NotFound from "./pages/NotFound";
 import ConversationsPage from "./pages/admin/Conversations";
 import TrueNesterChatbot from "./components/chat/TrueNesterChatbot";
@@ -49,6 +51,7 @@ const AppRoutes = () => {
         <Route path="/about" element={<About />} />
         <Route path="/locations" element={<Locations />} />
         <Route path="/blog" element={<Blog />} />
+        <Route path="/blog/:slug" element={<BlogPostDetail />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/property/:id" element={<PropertyDetail />} />
@@ -64,6 +67,7 @@ const AppRoutes = () => {
         <Route path="/admin/blog" element={<BlogPosts />} />
         <Route path="/admin/blog/new" element={<BlogPostForm />} />
         <Route path="/admin/blog/edit/:id" element={<BlogPostForm />} />
+        <Route path="/admin/settings" element={<Settings />} />
         <Route path="/admin/conversations" element={<ConversationsPage />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />

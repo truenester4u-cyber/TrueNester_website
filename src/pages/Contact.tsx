@@ -235,10 +235,12 @@ const Contact = () => {
         {/* Contact Info & Form */}
         <section className="py-16 bg-background">
           <div className="container-custom">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Contact Info Cards */}
-              <div className="space-y-6">
-                <Card className="border-0 shadow-lg">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Left Column: Info Cards & Form */}
+              <div className="space-y-8">
+                {/* Contact Info Cards */}
+                <div className="space-y-4">
+                  <Card className="border-0 shadow-lg">
                   <CardContent className="p-6">
                     <div className="flex items-start gap-4">
                       <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center flex-shrink-0">
@@ -306,10 +308,12 @@ const Contact = () => {
                     </div>
                   </CardContent>
                 </Card>
+                </div>
               </div>
 
-              {/* Contact Form */}
-              <div className="lg:col-span-2">
+              {/* Right Column: Form and Map */}
+              <div className="space-y-8">
+                {/* Contact Form */}
                 <Card className="border-0 shadow-xl">
                   <CardContent className="p-8">
                     <h2 className="text-2xl font-bold mb-6 font-heading">
@@ -435,14 +439,19 @@ const Contact = () => {
                   </CardContent>
                 </Card>
 
-                {/* Map Placeholder */}
-                <Card className="border-0 shadow-xl mt-8">
-                  <CardContent className="p-0">
-                    <div className="w-full h-64 bg-muted flex items-center justify-center">
-                      <p className="text-muted-foreground">Map Location - Business Bay, Dubai</p>
-                    </div>
-                  </CardContent>
-                </Card>
+                {/* Live Map */}
+                <div className="rounded-lg overflow-hidden shadow-lg border border-muted h-[400px]">
+                  <iframe
+                    width="100%"
+                    height="400"
+                    frameBorder="0"
+                    style={{ border: 0 }}
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3615.0838149999997!2d55.26916!3d25.263333!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3e5f4b8d9f0c0001%3A0x0!2sBin%20Sougat%20Building!5e0!3m2!1sen!2sae!4v1701356400000"
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  ></iframe>
+                </div>
               </div>
             </div>
           </div>
