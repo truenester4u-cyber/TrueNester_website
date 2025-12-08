@@ -1277,7 +1277,7 @@ const TrueNesterChatbot = () => {
         // Fallback: Save directly to Supabase if API failed after all retries
         try {
           console.log("API failed, falling back to direct Supabase save...");
-          const { data: conversation, error: convError } = await supabase
+          const { data: conversation, error: convError} = await supabase
             .from("conversations")
             .insert({
               id: payload.conversationId,
@@ -1292,7 +1292,7 @@ const TrueNesterChatbot = () => {
               lead_quality: payload.leadScore?.tier || "warm",
               status: "new",
               tags: ["chatbot", "web"],
-              metadata: {
+              lead_score_breakdown: {
                 analytics: payload.analytics,
                 visitorProfile: payload.visitorProfile,
                 profileCompletion: payload.profileCompletion,
@@ -1309,8 +1309,7 @@ const TrueNesterChatbot = () => {
             sender: msg.sender,
             message_text: msg.messageText,
             message_type: msg.messageType,
-            timestamp: msg.timestamp,
-            metadata: msg.metadata || {},
+            timestamp: new Date().toISOString(),
           }));
 
           const { error: msgError } = await supabase
