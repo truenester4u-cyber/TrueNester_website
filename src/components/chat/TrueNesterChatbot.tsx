@@ -1318,6 +1318,52 @@ const TrueNesterChatbot = () => {
 
           if (msgError) throw msgError;
 
+          // Send Slack notification
+          const slackWebhook = import.meta.env.VITE_SLACK_WEBHOOK_URL;
+          if (slackWebhook) {
+            try {
+              await fetch(slackWebhook, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  text: `🎯 *New Chatbot Lead* (Direct Save)`,
+                  blocks: [
+                    {
+                      type: "header",
+                      text: { type: "plain_text", text: "🎯 New Chatbot Lead" }
+                    },
+                    {
+                      type: "section",
+                      fields: [
+                        { type: "mrkdwn", text: `*Name:*\n${finalLead.name}` },
+                        { type: "mrkdwn", text: `*Phone:*\n${finalLead.phone}` },
+                        { type: "mrkdwn", text: `*Email:*\n${finalLead.email || "Not provided"}` },
+                        { type: "mrkdwn", text: `*Intent:*\n${payload.intent || "browse"}` },
+                        { type: "mrkdwn", text: `*Budget:*\n${finalLead.budget || "Not specified"}` },
+                        { type: "mrkdwn", text: `*Area:*\n${finalLead.locations?.join(", ") || "Any"}` },
+                        { type: "mrkdwn", text: `*Lead Score:*\n${payload.leadScore?.value || 50}/100 (${payload.leadScore?.tier || "warm"})` },
+                        { type: "mrkdwn", text: `*Profile:*\n${payload.profileCompletion || 0}% complete` }
+                      ]
+                    },
+                    {
+                      type: "actions",
+                      elements: [
+                        {
+                          type: "button",
+                          text: { type: "plain_text", text: "View in Admin" },
+                          url: `https://bright-torte-7f50cf.netlify.app/admin/conversations`,
+                          style: "primary"
+                        }
+                      ]
+                    }
+                  ]
+                })
+              });
+            } catch (slackError) {
+              console.error("Slack notification failed:", slackError);
+            }
+          }
+
           setSubmittedConversationId(conversation.id);
           setLeadSyncStatus("success");
           console.log("✅ Supabase fallback successful!");
