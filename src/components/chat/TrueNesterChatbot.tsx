@@ -105,8 +105,8 @@ const brand = {
   blue: "#1D74B8",
 };
 
-const proactivePopupSessionKey = "tnr_proactive_popup_seen";
-const chatbotClosedSessionKey = "tnr_chatbot_closed";
+const proactivePopupSessionKey = "tnr_proactive_popup_count";
+const MAX_POPUP_SHOWS = 3;
 
 const createId = () => globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
 
@@ -996,47 +996,22 @@ const TrueNesterChatbot = () => {
   useEffect(() => {
     if (typeof window === "undefined") return;
     
-    // Check if user already closed the chatbot this session - don't show popup
-    const chatbotClosed = sessionStorage.getItem(chatbotClosedSessionKey);
-    if (chatbotClosed) return;
+    // Check how many times popup has been shown this session
+    const popupCountStr = sessionStorage.getItem(proactivePopupSessionKey);
+    const popupCount = popupCountStr ? parseInt(popupCountStr, 10) : 0;
     
-    const seen = sessionStorage.getItem(proactivePopupSessionKey);
-    if (seen) return;
+    // Stop showing if already shown MAX_POPUP_SHOWS times
+    if (popupCount >= MAX_POPUP_SHOWS) return;
+    
     popupTimerRef.current = setTimeout(() => {
-      // Double-check chatbot wasn't closed while timer was running
-      if (sessionStorage.getItem(chatbotClosedSessionKey)) return;
       setShowProactivePrompt(true);
       trackAnalytics("popupViews");
-      sessionStorage.setItem(proactivePopupSessionKey, "1");
-    }, 6000);
-
-    const handleScrollTrigger = () => {
-      // Don't show if chatbot was closed
-      if (sessionStorage.getItem(chatbotClosedSessionKey)) return;
-      if (!showProactivePrompt) {
-        setShowProactivePrompt(true);
-        trackAnalytics("popupViews");
-        window.removeEventListener("scroll", handleScrollTrigger);
-      }
-    };
-
-    window.addEventListener("scroll", handleScrollTrigger, { once: true });
-
-    const handleMouseLeave = (event: MouseEvent) => {
-      // Don't show if chatbot was closed
-      if (sessionStorage.getItem(chatbotClosedSessionKey)) return;
-      if (event.clientY <= 0) {
-        setShowProactivePrompt(true);
-        trackAnalytics("popupViews");
-        window.removeEventListener("mouseout", handleMouseLeave);
-      }
-    };
-    window.addEventListener("mouseout", handleMouseLeave);
+      // Increment popup count
+      sessionStorage.setItem(proactivePopupSessionKey, String(popupCount + 1));
+    }, 8000); // Show popup after 8 seconds
 
     return () => {
       if (popupTimerRef.current) clearTimeout(popupTimerRef.current);
-      window.removeEventListener("scroll", handleScrollTrigger);
-      window.removeEventListener("mouseout", handleMouseLeave);
     };
   }, [showProactivePrompt]);
 
