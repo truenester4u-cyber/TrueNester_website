@@ -39,10 +39,28 @@ const PORT = Number(process.env.PORT ?? 4000);
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY;
 
 const app = express();
+
+// Allow multiple origins including localhost and production
+const allowedOrigins = [
+  "http://localhost:8080",
+  "http://localhost:5173",
+  "https://bright-torte-7f50cf.netlify.app",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:8080",
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, etc)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS not allowed for origin: ${origin}`));
+    }
+  },
   credentials: true,
-  methods: ["GET", "POST", "PATCH", "DELETE"],
+  methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "x-admin-api-key", "Authorization"],
 }));
 app.use(express.json({ limit: "1mb" }));
