@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MessageCircle, Send, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useLocation } from "react-router-dom";
 
 interface ChatMessage {
   id: string;
@@ -830,10 +831,13 @@ const generateCityInsight = (message: string) => {
 };
 
 const TrueNesterChatbot = () => {
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isInFooter, setIsInFooter] = useState(false);
+  const [isImageZoomed, setIsImageZoomed] = useState(false);
   const [leadInfo, setLeadInfo] = useState<LeadInfo>({ name: "", phone: "", email: "", budget: "", locations: [] });
   const [showMainMenu, setShowMainMenu] = useState(true);
   const [activeFlowId, setActiveFlowId] = useState<string | null>(null);
@@ -993,6 +997,41 @@ const TrueNesterChatbot = () => {
     setAutoOffer(featuredOffers[0]);
   }, []);
 
+  // Check if user is hovering over footer
+  useEffect(() => {
+    const handleScroll = () => {
+      const footer = document.querySelector('footer');
+      if (footer) {
+        const footerRect = footer.getBoundingClientRect();
+        const chatbotButton = document.querySelector('[data-chatbot-button]');
+        if (chatbotButton) {
+          const buttonRect = chatbotButton.getBoundingClientRect();
+          // Check if chatbot button overlaps with footer
+          const isOverlapping = buttonRect.bottom > footerRect.top;
+          setIsInFooter(isOverlapping);
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    handleScroll(); // Check on mount
+    
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Listen for image zoom events from PropertyDetail page
+  useEffect(() => {
+    const handleImageZoom = (event: CustomEvent) => {
+      setIsImageZoomed(event.detail.zoomed);
+    };
+
+    window.addEventListener('imageZoomChanged' as any, handleImageZoom);
+    
+    return () => {
+      window.removeEventListener('imageZoomChanged' as any, handleImageZoom);
+    };
+  }, []);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     
@@ -1014,6 +1053,18 @@ const TrueNesterChatbot = () => {
       if (popupTimerRef.current) clearTimeout(popupTimerRef.current);
     };
   }, [showProactivePrompt]);
+
+  // Lock body scroll when chatbot is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -1255,7 +1306,6 @@ const TrueNesterChatbot = () => {
           const { data: conversation, error: convError} = await supabase
             .from("conversations")
             .insert({
-              id: payload.conversationId,
               customer_id: payload.customerId,
               customer_name: finalLead.name,
               customer_phone: finalLead.phone,
@@ -1263,14 +1313,15 @@ const TrueNesterChatbot = () => {
               intent: payload.intent || "browse",
               budget: finalLead.budget || null,
               preferred_area: finalLead.locations?.join(", ") || null,
-              lead_score: payload.leadScore?.value || 50,
-              lead_quality: payload.leadScore?.tier || "warm",
+              lead_score: leadScore.value || 50,
+              lead_quality: leadScore.tier || "warm",
               status: "new",
               tags: ["chatbot", "web"],
+              start_time: new Date().toISOString(),
               lead_score_breakdown: {
-                analytics: payload.analytics,
-                visitorProfile: payload.visitorProfile,
-                profileCompletion: payload.profileCompletion,
+                analytics,
+                visitorProfile,
+                profileCompletion,
               },
             })
             .select()
@@ -1316,8 +1367,8 @@ const TrueNesterChatbot = () => {
                         { type: "mrkdwn", text: `*Intent:*\n${payload.intent || "browse"}` },
                         { type: "mrkdwn", text: `*Budget:*\n${finalLead.budget || "Not specified"}` },
                         { type: "mrkdwn", text: `*Area:*\n${finalLead.locations?.join(", ") || "Any"}` },
-                        { type: "mrkdwn", text: `*Lead Score:*\n${payload.leadScore?.value || 50}/100 (${payload.leadScore?.tier || "warm"})` },
-                        { type: "mrkdwn", text: `*Profile:*\n${payload.profileCompletion || 0}% complete` }
+                        { type: "mrkdwn", text: `*Lead Score:*\n${leadScore.value || 50}/100 (${leadScore.tier || "warm"})` },
+                        { type: "mrkdwn", text: `*Profile:*\n${profileCompletion || 0}% complete` }
                       ]
                     },
                     {
@@ -1859,6 +1910,13 @@ const TrueNesterChatbot = () => {
     return updated;
   };
 
+  // Check if current page should hide chatbot
+  const hiddenPages = ['/about', '/blog', '/contact'];
+  const isHiddenPage = hiddenPages.some(page => location.pathname.startsWith(page));
+  
+  // Hide chatbot if: on hidden pages, in footer, or image is zoomed
+  const shouldHideChatbot = isHiddenPage || isInFooter || isImageZoomed;
+
   return (
     <>
       <style>{`
@@ -1867,7 +1925,7 @@ const TrueNesterChatbot = () => {
           50% { border-color: #1D74B8; }
         }
       `}</style>
-      {showProactivePrompt && !isOpen && (
+      {showProactivePrompt && !isOpen && !shouldHideChatbot && (
         <div className="fixed bottom-28 right-4 z-40 w-80 rounded-3xl border border-slate-200 bg-white shadow-2xl p-4 space-y-3">
           <div className="flex items-start justify-between">
             <div>
@@ -1896,7 +1954,10 @@ const TrueNesterChatbot = () => {
           </p>
         </div>
       )}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end">
+      <div 
+        className={`fixed bottom-4 right-4 z-50 flex flex-col items-end transition-opacity duration-300 ${shouldHideChatbot ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+        data-chatbot-button
+      >
         {isOpen && (
           <div
             className="mb-3 w-[calc(100vw-2rem)] sm:w-[420px] md:w-[480px] bg-white border border-[#e0e0e0] shadow-xl rounded-[16px] overflow-hidden transition-all duration-300"

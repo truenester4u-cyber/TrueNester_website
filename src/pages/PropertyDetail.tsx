@@ -83,7 +83,9 @@ const PropertyDetail = () => {
   const [mobileImageIndex, setMobileImageIndex] = useState(0);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
-  const minSwipeDistance = 50;
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [touchEndY, setTouchEndY] = useState<number | null>(null);
+  const minSwipeDistance = 80; // Increased from 50 for better accuracy
 
   const overviewSectionRef = useRef<HTMLDivElement | null>(null);
   const detailsSectionRef = useRef<HTMLDivElement | null>(null);
@@ -101,18 +103,30 @@ const PropertyDetail = () => {
   // Mobile swipe handlers
   const onTouchStart = (e: TouchEvent<HTMLDivElement>) => {
     setTouchEnd(null);
+    setTouchEndY(null);
     setTouchStart(e.targetTouches[0].clientX);
+    setTouchStartY(e.targetTouches[0].clientY);
   };
 
   const onTouchMove = (e: TouchEvent<HTMLDivElement>) => {
     setTouchEnd(e.targetTouches[0].clientX);
+    setTouchEndY(e.targetTouches[0].clientY);
   };
 
   const onTouchEnd = (imagesArray: string[]) => {
-    if (!touchStart || !touchEnd) return;
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
+    if (!touchStart || !touchEnd || !touchStartY || !touchEndY) return;
+    
+    const horizontalDistance = touchStart - touchEnd;
+    const verticalDistance = Math.abs(touchStartY - touchEndY);
+    
+    // Only process horizontal swipes if horizontal movement is significantly larger than vertical
+    // This prevents triggering on vertical scrolls or pinch gestures
+    if (verticalDistance > Math.abs(horizontalDistance)) {
+      return; // User is scrolling vertically, ignore
+    }
+    
+    const isLeftSwipe = horizontalDistance > minSwipeDistance;
+    const isRightSwipe = horizontalDistance < -minSwipeDistance;
     
     if (isLeftSwipe && mobileImageIndex < imagesArray.length - 1) {
       setMobileImageIndex(prev => prev + 1);
@@ -149,11 +163,15 @@ const PropertyDetail = () => {
     setSelectedFloorPlan(index);
     setFloorPlanLightboxOpen(true);
     setFloorPlanZoom(1);
+    // Dispatch event to hide chatbot when floor plan is zoomed
+    window.dispatchEvent(new CustomEvent('imageZoomChanged', { detail: { zoomed: true } }));
   };
 
   const closeFloorPlanLightbox = () => {
     setFloorPlanLightboxOpen(false);
     setFloorPlanZoom(1);
+    // Dispatch event to show chatbot when floor plan zoom is closed
+    window.dispatchEvent(new CustomEvent('imageZoomChanged', { detail: { zoomed: false } }));
   };
 
   const nextFloorPlan = () => {
@@ -223,10 +241,14 @@ const PropertyDetail = () => {
   const openLightbox = (index: number) => {
     setCurrentImageIndex(index);
     setLightboxOpen(true);
+    // Dispatch event to hide chatbot when image is zoomed
+    window.dispatchEvent(new CustomEvent('imageZoomChanged', { detail: { zoomed: true } }));
   };
 
   const closeLightbox = () => {
     setLightboxOpen(false);
+    // Dispatch event to show chatbot when image zoom is closed
+    window.dispatchEvent(new CustomEvent('imageZoomChanged', { detail: { zoomed: false } }));
   };
 
   const nextImage = () => {
@@ -253,6 +275,18 @@ const PropertyDetail = () => {
       setActivePropertyType("");
     }
   }, [property?.property_type]);
+
+  // Lock body scroll when lightbox or floor plan lightbox is open
+  useEffect(() => {
+    if (lightboxOpen || floorPlanLightboxOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [lightboxOpen, floorPlanLightboxOpen]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -335,7 +369,7 @@ const PropertyDetail = () => {
                     {/* Mobile Swipeable Gallery */}
                     <div className="block lg:hidden">
                       <div 
-                        className="relative h-[250px] overflow-hidden rounded-xl"
+                        className="relative h-[250px] overflow-hidden rounded-xl bg-gray-100"
                         onTouchStart={onTouchStart}
                         onTouchMove={onTouchMove}
                         onTouchEnd={() => onTouchEnd(images)}
@@ -346,20 +380,20 @@ const PropertyDetail = () => {
                           style={{ transform: `translateX(-${mobileImageIndex * 100}%)` }}
                         >
                           {images.length > 0 ? images.map((img, idx) => (
-                            <div key={idx} className="min-w-full h-full relative flex-shrink-0">
+                            <div key={idx} className="min-w-full h-full relative flex-shrink-0 flex items-center justify-center">
                               <img 
                                 src={img || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop"} 
                                 alt={`${property.title} - ${idx + 1}`}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain"
                                 onClick={() => openLightbox(idx)}
                               />
                             </div>
                           )) : (
-                            <div className="min-w-full h-full relative flex-shrink-0">
+                            <div className="min-w-full h-full relative flex-shrink-0 flex items-center justify-center">
                               <img 
                                 src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop"
                                 alt={property.title}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain"
                                 onClick={() => openLightbox(0)}
                               />
                             </div>
