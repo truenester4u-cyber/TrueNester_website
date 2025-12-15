@@ -157,12 +157,21 @@ const Footer = () => {
               © 2025 TRUE NESTER. All rights reserved. Developed by <span className="text-primary font-semibold">TRUE NESTER</span>
             </p>
             <div className="flex gap-6 text-sm text-gray-400">
-              <a href="#" className="hover:text-primary transition-colors">
+              <Link 
+                to="/privacy-policy" 
+                className="hover:text-primary transition-colors"
+                onClick={() => window.scrollTo(0, 0)}
+              >
                 Privacy Policy
-              </a>
-              <a href="#" className="hover:text-primary transition-colors">
+              </Link>
+              <a href="#" className="text-gray-400">|</a>
+              <Link 
+                to="/terms-and-conditions" 
+                className="hover:text-primary transition-colors"
+                onClick={() => window.scrollTo(0, 0)}
+              >
                 Terms of Service
-              </a>
+              </Link>
             </div>
           </div>
         </div>

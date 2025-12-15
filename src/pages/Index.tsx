@@ -8,6 +8,7 @@ import LocationsGrid from "@/components/home/LocationsGrid";
 import AbuDhabiLocationsGrid from "@/components/home/AbuDhabiLocationsGrid";
 import RasAlKhaimahLocationsGrid from "@/components/home/RasAlKhaimahLocationsGrid";
 import JumeirahRentals from "@/components/home/JumeirahRentals";
+import { ReviewsSection } from "@/components/reviews/ReviewsSection";
 
 const Index = () => {
   return (
@@ -16,6 +17,7 @@ const Index = () => {
       <DeveloperPartners />
       <StatsBar />
       <FeaturedProperties />
+      <ReviewsSection />
       <JumeirahRentals />
       <PropertyTypes />
       <LocationsGrid />

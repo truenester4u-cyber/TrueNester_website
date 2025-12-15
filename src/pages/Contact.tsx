@@ -456,6 +456,27 @@ const Contact = () => {
             </div>
           </div>
         </section>
+
+        {/* Privacy & Terms Links Section */}
+        <section className="py-12 bg-gray-50 dark:bg-slate-900">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-8 text-center">
+              <a 
+                href="/privacy-policy"
+                className="text-blue-600 dark:text-blue-400 hover:underline font-medium transition-colors"
+              >
+                Privacy Policy
+              </a>
+              <div className="hidden sm:block w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
+              <a 
+                href="/terms-and-conditions"
+                className="text-blue-600 dark:text-blue-400 hover:underline font-medium transition-colors"
+              >
+                Terms & Conditions
+              </a>
+            </div>
+          </div>
+        </section>
       </div>
     </Layout>
   );

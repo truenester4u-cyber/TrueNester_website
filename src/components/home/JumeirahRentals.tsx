@@ -3,10 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Bed, Bath, MapPin, Square } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
-
-type Property = Tables<"properties">;
+import { Property } from "@/types/property";
+import { fetchRentalProperties } from "@/lib/supabase-queries";
 
 const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop";
 
@@ -14,22 +12,13 @@ const useJumeirahRentals = () => {
   return useQuery<Property[], Error>({
     queryKey: ["jumeirah-rentals"],
     queryFn: async () => {
-      // Fetch rental properties without city filter to get more results
-      const { data: allRentals, error } = await supabase
-        .from("properties")
-        .select("*")
-        .eq("published", true)
-        .eq("purpose", "rent")
-        .order("created_at", { ascending: false })
-        .limit(50);
-      
-      if (error) throw error;
+      const allRentals = await fetchRentalProperties();
 
       if (!allRentals || allRentals.length === 0) {
-        return []; // Return empty, will use default rentals
+        return [];
       }
 
-      // Filter for Dubai-specific properties first, then take top 6
+      // Filter for Dubai rentals
       const dubaiRentals = (allRentals as Property[])
         .filter((property: Property) => {
           const city = String(property.city || "").toLowerCase();
@@ -37,14 +26,16 @@ const useJumeirahRentals = () => {
         })
         .slice(0, 6);
 
-      // If we have Dubai rentals, return them
       if (dubaiRentals.length > 0) {
         return dubaiRentals;
       }
 
-      // Otherwise return the first 6 rentals from any location
       return (allRentals as Property[]).slice(0, 6);
     },
+    staleTime: 10 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: 2,
   });
 };
 

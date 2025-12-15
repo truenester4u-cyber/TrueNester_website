@@ -11,34 +11,81 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Bed, Bath, Square, MapPin, Heart, Grid3x3, List, ChevronDown } from "lucide-react";
+import { useIsPropertySaved, useToggleSaveProperty } from "@/hooks/useSavedProperties";
+import { useAuth } from "@/contexts/AuthContext.v2";
+import { useToast } from "@/hooks/use-toast";
 import { Link, useSearchParams } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { parsePropertyTypes } from "@/lib/utils";
-import type { Tables } from "@/integrations/supabase/types";
-
-type Property = Tables<"properties">;
+import { Property } from "@/types/property";
+import { fetchRentalProperties } from "@/lib/supabase-queries";
 
 const usePublishedRentals = (search: string) => {
   return useQuery<Property[], Error>({
     queryKey: ["rentals", search],
     queryFn: async () => {
-      let query = supabase
-        .from("properties")
-        .select("*")
-        .eq("published", true)
-        .eq("purpose", "rent")
-        .order("created_at", { ascending: false });
+      const allData = await fetchRentalProperties();
       
-      if (search.trim()) {
-        query = query.or(`title.ilike.%${search}%,location.ilike.%${search}%`);
+      if (!search.trim()) {
+        return allData;
       }
-      const { data, error } = await query.limit(48);
-      if (error) throw error;
-      return (data || []) as Property[];
+
+      const searchLower = search.toLowerCase();
+      return allData.filter((p) => 
+        p.title?.toLowerCase().includes(searchLower) ||
+        p.location?.toLowerCase().includes(searchLower)
+      );
     },
+    staleTime: 10 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: 2,
   });
+};
+
+// Heart Button Component
+const HeartButton = ({ propertyId, propertyTitle, propertyImage, propertyPrice }: { 
+  propertyId: string; 
+  propertyTitle: string; 
+  propertyImage?: string;
+  propertyPrice?: number;
+}) => {
+  const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
+  const { data: isFavorite = false } = useIsPropertySaved(propertyId);
+  const { toggleSave, isLoading } = useToggleSaveProperty();
+
+  const handleClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!isAuthenticated) {
+      toast({
+        title: "Login Required",
+        description: "Make sure you are logged in",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    await toggleSave(propertyId, isFavorite, {
+      title: propertyTitle,
+      image: propertyImage,
+      price: propertyPrice?.toString(),
+    });
+  };
+
+  return (
+    <button 
+      onClick={handleClick}
+      disabled={isLoading}
+      className="absolute top-4 right-4 w-11 h-11 bg-white/95 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white hover:scale-110 transition-all shadow-lg z-10 disabled:opacity-50"
+    >
+      <Heart className={`h-5 w-5 transition-colors ${isFavorite ? 'text-red-500 fill-current' : 'text-gray-700 hover:text-red-500'}`} />
+    </button>
+  );
 };
 
 const Rent = () => {
@@ -48,15 +95,61 @@ const Rent = () => {
   const [location, setLocation] = useState<string>("all");
   const [city, setCity] = useState<string>("all");
   const [subarea, setSubarea] = useState<string>("all");
+  const [locationQuery, setLocationQuery] = useState<string>("");
   const [bedrooms, setBedrooms] = useState<string>("all");
   const [propertyType, setPropertyType] = useState<string>("all");
   const [furnishing, setFurnishing] = useState<string>("all");
-  const [minRent, setMinRent] = useState<number>(50000);
-  const [maxRent, setMaxRent] = useState<number>(2000000);
+  const [minRent, setMinRent] = useState<string>("any");
+  const [maxRent, setMaxRent] = useState<string>("any");
   const [minSize, setMinSize] = useState<number>(500);
   const [maxSize, setMaxSize] = useState<number>(10000);
   const [showFilters, setShowFilters] = useState(false);
+  const [sortBy, setSortBy] = useState<string>("relevance");
+  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
   const { data: allProperties = [], isLoading } = usePublishedRentals(search);
+
+  // Min Rent options for dropdown (yearly rent in AED)
+  const minRentOptions = [
+    { value: "any", label: "Any" },
+    { value: "50000", label: "50K" },
+    { value: "75000", label: "75K" },
+    { value: "100000", label: "100K" },
+    { value: "150000", label: "150K" },
+    { value: "200000", label: "200K" },
+    { value: "300000", label: "300K" },
+    { value: "400000", label: "400K" },
+    { value: "500000", label: "500K" },
+  ];
+
+  // Max Rent options for dropdown (yearly rent in AED)
+  const maxRentOptions = [
+    { value: "any", label: "Any" },
+    { value: "75000", label: "75K" },
+    { value: "100000", label: "100K" },
+    { value: "150000", label: "150K" },
+    { value: "200000", label: "200K" },
+    { value: "300000", label: "300K" },
+    { value: "400000", label: "400K" },
+    { value: "500000", label: "500K" },
+    { value: "750000", label: "750K" },
+    { value: "1000000", label: "1M" },
+    { value: "1500000", label: "1.5M" },
+    { value: "2000000", label: "2M+" },
+  ];
+
+  // Get filtered max options based on selected min rent
+  const getFilteredMaxRentOptions = () => {
+    if (minRent === "any") return maxRentOptions;
+    const minVal = parseInt(minRent);
+    return maxRentOptions.filter(opt => opt.value === "any" || parseInt(opt.value) >= minVal);
+  };
+
+  // Get filtered min options based on selected max rent
+  const getFilteredMinRentOptions = () => {
+    if (maxRent === "any") return minRentOptions;
+    const maxVal = parseInt(maxRent);
+    return minRentOptions.filter(opt => opt.value === "any" || parseInt(opt.value) <= maxVal);
+  };
 
   // Helper function to slugify location names
   const slugify = (value?: string | null) =>
@@ -88,6 +181,34 @@ const Rent = () => {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [allProperties]);
 
+  // Filtered location options based on typeahead query
+  const filteredLocationOptions = useMemo(() => {
+    const q = locationQuery.trim().toLowerCase();
+    if (!q) return locationOptions;
+    return locationOptions.filter((opt) => opt.label.toLowerCase().includes(q));
+  }, [locationOptions, locationQuery]);
+
+  // Search suggestions based on property titles and locations
+  const searchSuggestions = useMemo(() => {
+    if (!search.trim() || search.trim().length < 2) return [];
+    const searchLower = search.toLowerCase();
+    const suggestions = new Set<string>();
+    
+    allProperties.forEach((property) => {
+      if (property.title?.toLowerCase().includes(searchLower)) {
+        suggestions.add(property.title);
+      }
+      if (property.location?.toLowerCase().includes(searchLower)) {
+        suggestions.add(property.location);
+      }
+      if (property.city?.toLowerCase().includes(searchLower)) {
+        suggestions.add(property.city);
+      }
+    });
+    
+    return Array.from(suggestions).slice(0, 8);
+  }, [search, allProperties]);
+
   // Initialize filters from URL query parameters
   useEffect(() => {
     const loc = searchParams.get("location");
@@ -104,6 +225,29 @@ const Rent = () => {
     if (typeParam) setPropertyType(typeParam);
     if (query) setSearch(query);
   }, [searchParams]);
+
+  // Helpers placed before usage to avoid initialization errors
+  const parseSqftValue = (value: string | number | null | undefined) => {
+    if (typeof value === "number") return value;
+    const text = (value ?? "").toString().replace(/,/g, "");
+    const match = text.match(/([0-9]+(\.\d+)?)/);
+    return match ? parseFloat(match[1]) : 0;
+  };
+
+  const parsePriceValue = (price?: number | null, display?: string | null) => {
+    if (typeof price === "number" && price > 0) return price;
+    const text = (display ?? "").toString().toLowerCase().replace(/,/g, "").trim();
+    if (!text) return 0;
+    const match = text.match(/([0-9]+(?:\.[0-9]+)?)(\s*[km])/i);
+    if (match) {
+      const num = parseFloat(match[1]);
+      const unit = match[2].trim().toLowerCase();
+      if (unit === "k") return Math.round(num * 1000);
+      if (unit === "m") return Math.round(num * 1_000_000);
+    }
+    const plain = text.match(/([0-9]+(?:\.[0-9]+)?)/);
+    return plain ? Math.round(parseFloat(plain[1])) : 0;
+  };
 
   // Apply filters - each filter is independent and only applies if explicitly set by user
   const properties = allProperties.filter((property) => {
@@ -172,11 +316,22 @@ const Rent = () => {
       }
     }
 
-    // Yearly Rent filter - only apply if user moved sliders
-    if (minRent !== 50000 || maxRent !== 2000000) {
-      const propPrice = property.price ?? 0;
-      // Skip properties with no price or apply range filter
-      if (propPrice === 0 || propPrice < minRent || propPrice > maxRent) return false;
+    // Yearly Rent filter - parse price from numeric field or display text
+    const price = parsePriceValue(property.price, property.price_display);
+    
+    // Check minimum rent filter
+    if (minRent !== "any") {
+      const minRentNum = parseInt(minRent);
+      // If property has no parseable price, include it (don't exclude)
+      if (price > 0 && price < minRentNum) return false;
+    }
+    
+    // Check maximum rent filter (2M+ means no upper limit)
+    if (maxRent !== "any" && maxRent !== "2000000") {
+      const maxRentNum = parseInt(maxRent);
+      // If property has no parseable price, include it (don't exclude)
+      // Only exclude if price is known and exceeds max
+      if (price > 0 && price > maxRentNum) return false;
     }
 
     // Size filter - only apply if user moved sliders
@@ -189,12 +344,38 @@ const Rent = () => {
     return true;
   });
 
-  const parseSqftValue = (value: string | number | null | undefined) => {
-    if (typeof value === "number") return value;
-    const text = (value ?? "").toString().replace(/,/g, "");
-    const match = text.match(/([0-9]+(\.\d+)?)/);
-    return match ? parseFloat(match[1]) : 0;
-  };
+  // Apply sorting
+  const sortedProperties = useMemo(() => {
+    const sorted = [...properties];
+    
+    switch (sortBy) {
+      case "price-low":
+        return sorted.sort((a, b) => {
+          const priceA = parsePriceValue(a.price, a.price_display);
+          const priceB = parsePriceValue(b.price, b.price_display);
+          return priceA - priceB;
+        });
+      
+      case "price-high":
+        return sorted.sort((a, b) => {
+          const priceA = parsePriceValue(a.price, a.price_display);
+          const priceB = parsePriceValue(b.price, b.price_display);
+          return priceB - priceA;
+        });
+      
+      case "newest":
+        return sorted.sort((a, b) => {
+          const dateA = new Date(a.created_at || 0).getTime();
+          const dateB = new Date(b.created_at || 0).getTime();
+          return dateB - dateA;
+        });
+      
+      default: // relevance
+        return sorted;
+    }
+  }, [properties, sortBy]);
+
+  // Removed duplicate parseSqftValue (moved above)
 
   const formatPrice = (price?: number) =>
     typeof price === "number"
@@ -232,8 +413,8 @@ const Rent = () => {
     subarea !== "all" || 
     propertyType !== "all" || 
     bedrooms !== "all" || 
-    minRent !== 50000 || 
-    maxRent !== 2000000 || 
+    minRent !== "any" || 
+    maxRent !== "any" || 
     minSize !== 500 || 
     maxSize !== 10000;
 
@@ -243,8 +424,8 @@ const Rent = () => {
     setSubarea("all");
     setPropertyType("all");
     setBedrooms("all");
-    setMinRent(50000);
-    setMaxRent(2000000);
+    setMinRent("any");
+    setMaxRent("any");
     setMinSize(500);
     setMaxSize(10000);
     setSearchParams(new URLSearchParams());
@@ -254,18 +435,44 @@ const Rent = () => {
     <Layout>
       <div className="pt-20">
         {/* Quick Search */}
-        <section className="bg-background border-b py-3 sm:py-4 gap-4">
+        <section className="bg-background border-b py-2.5 sm:py-3 gap-4">
           <div className="container-custom px-3 sm:px-4">
             <div className="max-w-4xl mx-auto">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
-                <Input
-                  placeholder="Search..."
-                  className="md:col-span-2 text-xs sm:text-sm h-9 sm:h-10"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-2.5">
+                <div className="md:col-span-2 relative">
+                  <Input
+                    placeholder="Search..."
+                    className="text-xs sm:text-sm h-8 sm:h-9"
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setShowSearchSuggestions(true);
+                    }}
+                    onFocus={() => setShowSearchSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSearchSuggestions(false), 200)}
+                  />
+                  {showSearchSuggestions && searchSuggestions.length > 0 && (
+                    <Card className="absolute top-full left-0 right-0 mt-1 z-50 shadow-lg max-h-64 overflow-auto">
+                      <CardContent className="p-1">
+                        {searchSuggestions.map((suggestion, idx) => (
+                          <Button
+                            key={idx}
+                            variant="ghost"
+                            className="w-full justify-start text-xs sm:text-sm h-8"
+                            onClick={() => {
+                              setSearch(suggestion);
+                              setShowSearchSuggestions(false);
+                            }}
+                          >
+                            {suggestion}
+                          </Button>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
                 <Select value={propertyType} onValueChange={setPropertyType}>
-                  <SelectTrigger className="text-xs sm:text-sm h-9 sm:h-10">
+                  <SelectTrigger className="text-xs sm:text-sm h-8 sm:h-9">
                     <SelectValue placeholder="Property Type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -277,7 +484,7 @@ const Rent = () => {
                   </SelectContent>
                 </Select>
                 <Button
-                  className="bg-gradient-primary hover:opacity-90 text-xs sm:text-sm h-9 sm:h-10"
+                  className="bg-gradient-primary hover:opacity-90 text-xs sm:text-sm h-8 sm:h-9"
                   onClick={() => {
                     const params = new URLSearchParams();
                     if (search.trim()) params.set("q", search.trim());
@@ -297,7 +504,7 @@ const Rent = () => {
         </section>
 
         {/* Main Content */}
-        <section className="py-4 sm:py-6">
+        <section className="py-3 sm:py-5">
           <div className="container-custom px-3 sm:px-4">
             <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
               {/* Filters Sidebar - Collapsible on mobile */}
@@ -306,7 +513,7 @@ const Rent = () => {
                 <div className="lg:hidden mb-4">
                   <Button
                     variant="outline"
-                    className="w-full flex items-center justify-between text-sm h-9"
+                    className="w-full flex items-center justify-between text-sm h-8"
                     onClick={() => setShowFilters(!showFilters)}
                   >
                     <span>Filters</span>
@@ -316,14 +523,14 @@ const Rent = () => {
 
                 {/* Filters content - Visible on desktop, toggleable on mobile */}
                 <Card className={`sticky top-20 shadow-md ${!showFilters && 'hidden lg:block'}`}>
-                  <CardContent className="p-3 sm:p-4">
-                    <h3 className="text-sm md:text-base font-bold mb-3 sm:mb-4">Filters</h3>
-                    <div className="space-y-3 sm:space-y-4">
+                  <CardContent className="p-2 sm:p-3">
+                    <h3 className="text-sm md:text-base font-bold mb-2 sm:mb-3">Filters</h3>
+                    <div className="space-y-2 sm:space-y-3">
                       {/* Furnishing */}
                       <div>
-                        <label className="block text-xs sm:text-sm font-semibold mb-2">Furnishing</label>
+                        <label className="block text-xs sm:text-sm font-semibold mb-1">Furnishing</label>
                         <Select value={furnishing} onValueChange={(value) => setFurnishing(value)}>
-                          <SelectTrigger className="w-full text-xs sm:text-sm h-9 sm:h-10">
+                          <SelectTrigger className="w-full text-xs sm:text-sm h-8 sm:h-9">
                             <SelectValue placeholder="All" />
                           </SelectTrigger>
                           <SelectContent>
@@ -337,27 +544,42 @@ const Rent = () => {
 
                       {/* Location */}
                       <div>
-                        <label className="block text-xs sm:text-sm font-semibold mb-2">Location</label>
-                        <Select value={subarea} onValueChange={(value) => setSubarea(value)}>
-                          <SelectTrigger className="w-full text-xs sm:text-sm h-9 sm:h-10">
+                        <label className="block text-xs sm:text-sm font-semibold mb-1">Location</label>
+                        <Select 
+                          value={subarea} 
+                          onValueChange={(value) => {
+                            setSubarea(value);
+                            setLocationQuery("");
+                          }}
+                        >
+                          <SelectTrigger className="w-full text-xs sm:text-sm h-8 sm:h-9">
                             <SelectValue placeholder="All Areas" />
                           </SelectTrigger>
-                          <SelectContent>
-                              <SelectItem value="all">All Areas</SelectItem>
-                              {locationOptions.map((opt) => (
-                                <SelectItem key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </SelectItem>
-                              ))}
+                          <SelectContent className="max-h-[300px]">
+                            <div className="sticky top-0 bg-background z-10 p-2 border-b">
+                              <Input
+                                placeholder="Type to search areas..."
+                                value={locationQuery}
+                                onChange={(e) => setLocationQuery(e.target.value)}
+                                className="w-full text-xs sm:text-sm h-8"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                            <SelectItem value="all">All Areas</SelectItem>
+                            {filteredLocationOptions.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
 
                       {/* Property Type */}
                       <div>
-                        <label className="block text-xs sm:text-sm font-semibold mb-2">Property Type</label>
+                        <label className="block text-xs sm:text-sm font-semibold mb-1">Property Type</label>
                         <Select value={propertyType} onValueChange={(value) => setPropertyType(value)}>
-                          <SelectTrigger className="w-full text-xs sm:text-sm h-9 sm:h-10">
+                          <SelectTrigger className="w-full text-xs sm:text-sm h-8 sm:h-9">
                             <SelectValue placeholder="All Types" />
                           </SelectTrigger>
                           <SelectContent>
@@ -372,7 +594,7 @@ const Rent = () => {
 
                       {/* Bedrooms */}
                       <div>
-                        <label className="block text-xs sm:text-sm font-semibold mb-2">Bedrooms</label>
+                        <label className="block text-xs sm:text-sm font-semibold mb-1">Bedrooms</label>
                         <div className="grid grid-cols-3 gap-1 sm:gap-2">
                           {["All", "Studio", "1", "2", "3", "4", "5+"].map((bed) => {
                             const bedVal = bed === "All" ? "all" : bed === "Studio" ? "studio" : bed === "5+" ? "5+" : bed;
@@ -381,7 +603,7 @@ const Rent = () => {
                                 key={bed}
                                 variant={bedrooms === bedVal ? "default" : "outline"}
                                 size="sm"
-                                className={`text-xs h-8 sm:h-9 ${bedrooms === bedVal ? "bg-primary text-white" : "hover:bg-primary/10"}`}
+                                className={`text-xs h-7 sm:h-8 ${bedrooms === bedVal ? "bg-primary text-white" : "hover:bg-primary/10"}`}
                                 onClick={() => setBedrooms(bedrooms === bedVal ? "all" : bedVal)}
                               >
                                 {bed}
@@ -391,31 +613,66 @@ const Rent = () => {
                         </div>
                       </div>
 
-                      {/* Price Range */}
+                      {/* Price Range - Min/Max Selects */}
                       <div>
-                        <label className="block text-xs sm:text-sm font-semibold mb-2">
-                          Yearly Rent (AED)
-                        </label>
-                        <Slider
-                          value={[minRent, maxRent]}
-                          onValueChange={([min, max]) => {
-                            setMinRent(min);
-                            setMaxRent(max);
-                          }}
-                          min={50000}
-                          max={2000000}
-                          step={10000}
-                          className="mb-2"
-                        />
-                        <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>{Math.round(minRent / 1000)}K</span>
-                          <span>{Math.round(maxRent / 1000)}K</span>
+                        <label className="block text-xs sm:text-sm font-semibold mb-1">Yearly Rent (AED)</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Select 
+                            value={minRent} 
+                            onValueChange={(value) => {
+                              setMinRent(value);
+                              // Adjust maxRent if it's now less than minRent
+                              if (maxRent !== "any" && value !== "any") {
+                                const minVal = parseInt(value);
+                                const maxVal = parseInt(maxRent);
+                                if (maxVal < minVal) {
+                                  setMaxRent(value);
+                                }
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="w-full text-xs sm:text-sm h-8 sm:h-9">
+                              <SelectValue placeholder="Min" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {getFilteredMinRentOptions().map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Select 
+                            value={maxRent} 
+                            onValueChange={(value) => {
+                              setMaxRent(value);
+                              // Adjust minRent if it's now greater than maxRent
+                              if (minRent !== "any" && value !== "any") {
+                                const minVal = parseInt(minRent);
+                                const maxVal = parseInt(value);
+                                if (minVal > maxVal) {
+                                  setMinRent(value);
+                                }
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="w-full text-xs sm:text-sm h-8 sm:h-9">
+                              <SelectValue placeholder="Max" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {getFilteredMaxRentOptions().map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
 
                       {/* Size Range */}
                       <div>
-                        <label className="block text-xs sm:text-sm font-semibold mb-2">Size (sqft)</label>
+                        <label className="block text-xs sm:text-sm font-semibold mb-1">Size (sqft)</label>
                         <Slider
                           value={[minSize, maxSize]}
                           onValueChange={([min, max]) => {
@@ -425,7 +682,7 @@ const Rent = () => {
                           min={500}
                           max={10000}
                           step={100}
-                          className="mb-2"
+                          className="mb-1.5"
                         />
                         <div className="flex justify-between text-xs text-muted-foreground">
                           <span>{minSize.toLocaleString()}</span>
@@ -434,7 +691,7 @@ const Rent = () => {
                       </div>
 
                       <Button
-                        className="w-full bg-gradient-primary hover:opacity-90 text-xs sm:text-sm h-9 sm:h-10"
+                        className="w-full bg-gradient-primary hover:opacity-90 text-xs sm:text-sm h-8 sm:h-9"
                         onClick={() => {
                           if (hasActiveFilters) {
                             clearFilters();
@@ -462,12 +719,12 @@ const Rent = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 mb-4">
                   <div>
                     <p className="text-xs sm:text-sm md:text-base font-semibold">
-                      <span className="text-primary">{properties.length}</span> properties found
+                      <span className="text-primary">{sortedProperties.length}</span> properties found
                     </p>
                   </div>
                   <div className="flex items-center gap-2 sm:gap-4">
-                    <Select defaultValue="relevance">
-                      <SelectTrigger className="w-32 sm:w-40 text-xs sm:text-sm h-9 sm:h-10">
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger className="w-32 sm:w-40 text-xs sm:text-sm h-8 sm:h-9">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -481,7 +738,7 @@ const Rent = () => {
                       <Button
                         variant={viewMode === "grid" ? "default" : "outline"}
                         size="icon"
-                        className="h-9 w-9 sm:h-10 sm:w-10"
+                        className="h-8 w-8 sm:h-9 sm:w-9"
                         onClick={() => setViewMode("grid")}
                       >
                         <Grid3x3 className="h-4 w-4" />
@@ -489,7 +746,7 @@ const Rent = () => {
                       <Button
                         variant={viewMode === "list" ? "default" : "outline"}
                         size="icon"
-                        className="h-9 w-9 sm:h-10 sm:w-10"
+                        className="h-8 w-8 sm:h-9 sm:w-9"
                         onClick={() => setViewMode("list")}
                       >
                         <List className="h-4 w-4" />
@@ -505,13 +762,13 @@ const Rent = () => {
                       <div key={i} className="h-64 sm:h-72 md:h-96 bg-muted animate-pulse rounded-lg sm:rounded-2xl" />
                     ))}
                   </div>
-                ) : properties.length === 0 ? (
+                ) : sortedProperties.length === 0 ? (
                   <div className="text-center py-8 sm:py-12">
                     <p className="text-xs sm:text-sm md:text-base text-muted-foreground px-2">No properties found. Try adjusting your search or filters.</p>
                   </div>
                 ) : (
                   <div className={`grid ${viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2" : "grid-cols-1"} gap-2 sm:gap-3 md:gap-4`}>
-                    {properties.map((property) => {
+                    {sortedProperties.map((property) => {
                       const images = (property.images as string[]) || [];
                       const allImages = property.featured_image ? [property.featured_image, ...images.filter((img: string) => img !== property.featured_image)] : images;
                       const displayImages = allImages.length > 0 ? allImages : ["https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop"];
@@ -580,9 +837,12 @@ const Rent = () => {
                               </div>
                               
                               {/* Overlay elements with improved styling */}
-                              <button className="absolute top-4 right-4 w-11 h-11 bg-white/95 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white hover:scale-110 transition-all shadow-lg z-10">
-                                <Heart className="h-5 w-5 text-gray-700 hover:text-red-500 transition-colors" />
-                              </button>
+                              <HeartButton 
+                                propertyId={property.id}
+                                propertyTitle={property.title}
+                                propertyImage={property.featured_image}
+                                propertyPrice={property.price}
+                              />
                               
                               {/* Price badge with enhanced styling */}
                               <div className="absolute bottom-4 left-4 bg-white rounded-xl px-5 py-3 z-10 shadow-xl">

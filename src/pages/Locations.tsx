@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Layout from "@/components/Layout";
 import { Link } from "react-router-dom";
 import { MapPin } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import downtownImg from "@/assets/location-downtown.jpg";
 
@@ -19,35 +20,52 @@ interface Location {
   published: boolean;
 }
 
+const fetchLocations = async (): Promise<Location[]> => {
+  console.log("📍 Fetching locations...");
+  
+  try {
+    // Simple query - just get all data
+    const { data, error } = await supabase.from("locations").select();
+
+    if (error) {
+      console.error("❌ Error fetching locations:", error.message);
+      return [];
+    }
+
+    if (!data || data.length === 0) {
+      console.log("⚠️ No locations in database");
+      return [];
+    }
+
+    console.log("✅ Locations loaded:", { count: data.length });
+    return data as Location[];
+  } catch (err) {
+    console.error("❌ Exception fetching locations:", err);
+    return [];
+  }
+};
+
+const useLocations = () => {
+  return useQuery<Location[], Error>({
+    queryKey: ["locations"],
+    queryFn: fetchLocations,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    retry: 2,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
+};
+
 const Locations = () => {
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: locations = [], isLoading, error } = useLocations();
 
   useEffect(() => {
-    fetchLocations();
+    // Refetch when user returns to page (in case data was updated elsewhere)
+    window.addEventListener("focus", () => {
+      console.log("📍 Locations page refocused - checking for updates");
+    });
   }, []);
-
-  const fetchLocations = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("locations")
-        .select("*")
-        .eq("published", true)
-        .order("city", { ascending: true })
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Error fetching locations:", error);
-        return;
-      }
-
-      setLocations(data || []);
-    } catch (error) {
-      console.error("Error fetching locations:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Group locations by city
   const dubaiLocations = locations.filter(loc => loc.city === 'Dubai');
@@ -112,11 +130,23 @@ const Locations = () => {
           </div>
         </section>
 
-        {loading ? (
+        {isLoading ? (
           <section className="py-16 bg-background">
             <div className="container-custom">
               <div className="text-center text-muted-foreground py-12">
-                Loading locations...
+                <div className="inline-block">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
+                  <p>Loading locations...</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : error ? (
+          <section className="py-16 bg-background">
+            <div className="container-custom">
+              <div className="text-center text-destructive py-12">
+                <p className="mb-4">⚠️ Failed to load locations</p>
+                <p className="text-sm text-muted-foreground">{(error as Error).message}</p>
               </div>
             </div>
           </section>

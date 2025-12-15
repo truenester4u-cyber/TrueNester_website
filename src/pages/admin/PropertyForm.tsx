@@ -970,7 +970,6 @@ const PropertyForm = () => {
                         <SelectContent>
                           <SelectItem value="ready">Ready</SelectItem>
                           <SelectItem value="off-plan">Off-Plan</SelectItem>
-                          <SelectItem value="under-construction">Under Construction</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

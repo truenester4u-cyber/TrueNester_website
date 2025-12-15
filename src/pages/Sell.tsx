@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle, Loader2 } from "lucide-react";
+import { CheckCircle, Loader2, Upload, X } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,9 +27,15 @@ type ValuationFormData = {
   details: string;
 };
 
+type UploadedImage = {
+  file: File;
+  preview: string;
+};
+
 const Sell = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [formData, setFormData] = useState<ValuationFormData>({
     fullName: "",
     email: "",
@@ -44,6 +50,81 @@ const Sell = () => {
 
   const handleChange = (field: keyof ValuationFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    if (uploadedImages.length + files.length > 10) {
+      toast({
+        title: "Too many images",
+        description: "You can upload a maximum of 10 images.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    Array.from(files).forEach((file) => {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: `${file.name} exceeds 5MB limit.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!file.type.startsWith("image/")) {
+        toast({
+          title: "Invalid file",
+          description: `${file.name} is not an image file.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const preview = URL.createObjectURL(file);
+      setUploadedImages((prev) => [...prev, { file, preview }]);
+    });
+
+    e.target.value = "";
+  };
+
+  const removeImage = (index: number) => {
+    setUploadedImages((prev) => {
+      const updated = prev.filter((_, i) => i !== index);
+      URL.revokeObjectURL(prev[index].preview);
+      return updated;
+    });
+  };
+
+  const uploadImagesToSupabase = async (): Promise<string[]> => {
+    const imageUrls: string[] = [];
+
+    for (const { file } of uploadedImages) {
+      try {
+        const timestamp = Date.now();
+        const fileName = `sell-inquiry-${timestamp}-${Math.random().toString(36).substring(7)}-${file.name}`;
+        const filePath = `sell-properties/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("property-images")
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from("property-images")
+          .getPublicUrl(filePath);
+
+        imageUrls.push(publicUrlData.publicUrl);
+      } catch (error: any) {
+        console.error("Image upload error:", error);
+      }
+    }
+
+    return imageUrls;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,6 +142,8 @@ const Sell = () => {
     setLoading(true);
 
     try {
+      const imageUrls = await uploadImagesToSupabase();
+
       const conversationId = crypto.randomUUID();
       const messageId = crypto.randomUUID();
       const customerId = crypto.randomUUID();
@@ -80,12 +163,14 @@ const Sell = () => {
           lead_quality: "hot",
           intent: "sell",
           tags: ["sell", "valuation", "sell-page"],
-          notes: `Expected price: ${formData.expectedPrice || "N/A"}`,
+          notes: `Expected price: ${formData.expectedPrice || "N/A"}${imageUrls.length > 0 ? `\n\nProperty Images (${imageUrls.length}): ${imageUrls.join(', ')}` : ''}`,
           lead_score_breakdown: {
             source: "sell-page",
             hasEmail: Boolean(formData.email),
             hasPhone: Boolean(formData.phone),
             propertyType: formData.propertyType,
+            images: imageUrls,
+            imageCount: imageUrls.length,
           },
         });
 
@@ -105,6 +190,8 @@ const Sell = () => {
             source: "sell-page",
             category: "valuation",
             propertyType: formData.propertyType,
+            images: imageUrls,
+            imageCount: imageUrls.length,
           },
         });
 
@@ -112,8 +199,9 @@ const Sell = () => {
 
       const slackWebhookUrl = import.meta.env.VITE_SLACK_WEBHOOK_QUOTES_URL || import.meta.env.VITE_SLACK_WEBHOOK_URL;
       if (slackWebhookUrl) {
-        try {
-          await fetch(slackWebhookUrl, {
+        // Send Slack notification without blocking (with timeout)
+        Promise.race([
+          fetch(slackWebhookUrl, {
             method: "POST",
             mode: "no-cors",
             headers: { "Content-Type": "application/json" },
@@ -134,12 +222,35 @@ const Sell = () => {
                     { type: "mrkdwn", text: `*Location:*\n${formData.location}` },
                     { type: "mrkdwn", text: `*Size:*\n${formData.size} sqft` },
                     { type: "mrkdwn", text: `*Expected Price:*\n${formData.expectedPrice || "N/A"}` },
+                    { type: "mrkdwn", text: `*Images Uploaded:*\n${imageUrls.length} image(s)` },
                   ],
                 },
                 {
                   type: "section",
                   text: { type: "mrkdwn", text: `*Details:*\n${formData.details || "N/A"}` },
                 },
+                ...(imageUrls.length > 0 ? [
+                  {
+                    type: "section",
+                    text: { type: "mrkdwn", text: `*Property Images (${imageUrls.length}):*` },
+                  },
+                  ...imageUrls.slice(0, 3).map((url) => ({
+                    type: "image",
+                    image_url: url,
+                    alt_text: "Property image",
+                  })),
+                  ...(imageUrls.length > 3 ? [
+                    {
+                      type: "context",
+                      elements: [
+                        {
+                          type: "mrkdwn",
+                          text: `_+${imageUrls.length - 3} more image(s) - view in admin panel_`,
+                        },
+                      ],
+                    },
+                  ] : []),
+                ] : []),
                 {
                   type: "actions",
                   elements: [
@@ -153,10 +264,11 @@ const Sell = () => {
                 },
               ],
             }),
-          });
-        } catch (slackError) {
-          // Ignore Slack errors to avoid blocking the user
-        }
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+        ]).catch(() => {
+          // Ignore Slack errors and timeouts to avoid blocking the user
+        });
       }
 
       toast({
@@ -175,6 +287,7 @@ const Sell = () => {
         expectedPrice: "",
         details: "",
       });
+      setUploadedImages([]);
     } catch (error: any) {
       toast({
         title: "Submission failed",
@@ -357,6 +470,51 @@ const Sell = () => {
                         className="h-12 border-gray-300 focus:border-primary"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold mb-3 text-gray-700">Property Images</label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer relative">
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                      />
+                      <div className="flex flex-col items-center gap-2">
+                        <Upload className="h-8 w-8 text-gray-400" />
+                        <div>
+                          <p className="text-sm font-semibold text-gray-700">Click to upload or drag and drop</p>
+                          <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB (Max 10 images)</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {uploadedImages.length > 0 && (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                        {uploadedImages.map((image, index) => (
+                          <div key={index} className="relative group">
+                            <img
+                              src={image.preview}
+                              alt={`Preview ${index + 1}`}
+                              className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeImage(index)}
+                              className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                            <p className="text-xs text-gray-500 mt-1 truncate">{image.file.name}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {uploadedImages.length > 0 && (
+                      <p className="text-xs text-gray-500 mt-2">{uploadedImages.length}/10 images uploaded</p>
+                    )}
                   </div>
 
                   <div>

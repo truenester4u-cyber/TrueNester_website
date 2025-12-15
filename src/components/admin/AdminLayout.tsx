@@ -1,9 +1,8 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "./AdminSidebar";
-import { User } from "@supabase/supabase-js";
+import { useAuth } from "@/contexts/AuthContext.v2";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -11,40 +10,30 @@ interface AdminLayoutProps {
 
 const AdminLayout = ({ children }: AdminLayoutProps) => {
   const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isLoading, isAuthenticated } = useAuth();
 
+  // Redirect to login if not authenticated (after loading completes)
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null);
-      if (!session?.user) {
-        navigate("/auth");
-      }
-    });
+    if (!isLoading && !isAuthenticated) {
+      console.log("🔐 AdminLayout: Not authenticated, redirecting to /admin/login");
+      navigate("/admin/login", { replace: true });
+    }
+  }, [isLoading, isAuthenticated, navigate]);
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (!session?.user) {
-        navigate("/auth");
-      }
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
-
-  if (loading) {
+  // Show loading state (with max 3 second visual timeout)
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground">Loading admin panel...</p>
         </div>
       </div>
     );
   }
 
-  if (!user) {
+  // Don't render content if not authenticated
+  if (!isAuthenticated || !user) {
     return null;
   }
 

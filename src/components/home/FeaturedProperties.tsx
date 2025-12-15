@@ -3,13 +3,12 @@ import { Bed, Bath, Square, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
-
-type Property = Tables<"properties">;
+import { Property } from "@/types/property";
+import { fetchFeaturedProperties } from "@/lib/supabase-queries";
+import { getSafeImageUrl, getSafeImageUrls, handleImageError, PLACEHOLDER_IMAGE } from "@/lib/imageUtils";
 type FeaturedFlag = "featured_dubai" | "featured_abu_dhabi" | "featured_ras_al_khaimah";
 
-const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop";
+const PLACEHOLDER_IMAGE_FALLBACK = "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop";
 
 type FeaturedSection = {
   flag: FeaturedFlag;
@@ -114,17 +113,11 @@ const renderSkeletonGrid = () => (
 const useFeaturedProperties = () => {
   return useQuery<Property[], Error>({
     queryKey: ["featured-properties"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("properties")
-        .select("*")
-        .eq("published", true)
-        .or("featured_dubai.eq.true,featured_abu_dhabi.eq.true,featured_ras_al_khaimah.eq.true")
-        .order("featured", { ascending: false })
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data || []) as Property[];
-    },
+    queryFn: fetchFeaturedProperties,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: 2,
   });
 };
 
@@ -188,8 +181,10 @@ const FeaturedProperties = () => {
               <div className="w-full h-full relative overflow-hidden">
                 <img
                   src={mainImage}
-                  alt={property.title}
+                  alt={property.title || 'Property'}
                   className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                  onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
+                  loading="lazy"
                 />
                 {property.featured && (
                   <div className="absolute top-4 left-4 z-10">
@@ -202,8 +197,10 @@ const FeaturedProperties = () => {
                 <div className={`${thumbnails.length > 0 ? 'flex-[65]' : 'w-full'} relative overflow-hidden`}>
                   <img
                     src={mainImage}
-                    alt={property.title}
+                    alt={property.title || 'Property'}
                     className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                    onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
+                    loading="lazy"
                   />
                   {property.featured && (
                     <div className="absolute top-4 left-4 z-10">
@@ -218,8 +215,10 @@ const FeaturedProperties = () => {
                       <div key={idx} className="flex-1 relative overflow-hidden rounded-md">
                         <img
                           src={img}
-                          alt={`${property.title} - ${idx + 2}`}
+                          alt={`${property.title || 'Property'} - ${idx + 2}`}
                           className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                          onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
+                          loading="lazy"
                         />
                         {/* Show +N overlay on last thumbnail if more images exist */}
                         {idx === thumbnails.length - 1 && allImages.length > 4 && (

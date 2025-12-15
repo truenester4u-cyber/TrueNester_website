@@ -11,6 +11,7 @@ import {
   TrendingUp,
   Plus,
   Settings,
+  MessageSquare,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -49,12 +50,17 @@ const AdminDashboard = () => {
 
       if (propertiesError) throw propertiesError;
 
-      // Fetch blog posts stats
-      const { data: blogPosts, error: blogError } = await supabase
-        .from("blog_posts")
-        .select("published");
-
-      if (blogError) throw blogError;
+      // Fetch blog posts stats (optional - won't fail if table doesn't exist)
+      let blogPosts: any[] = [];
+      try {
+        const { data: blogData } = await supabase
+          .from("blog_posts")
+          .select("published");
+        blogPosts = blogData || [];
+      } catch (blogError) {
+        // Silently ignore if blog_posts table doesn't exist
+        console.warn("Blog posts table not available:", blogError);
+      }
 
       const totalProperties = properties?.length || 0;
       const publishedProperties =
@@ -77,9 +83,10 @@ const AdminDashboard = () => {
         publishedBlogPosts,
       });
     } catch (error: any) {
+      console.error("Dashboard stats error:", error);
       toast({
-        title: "Error",
-        description: error.message,
+        title: "Error loading dashboard",
+        description: error.message || "Failed to load dashboard statistics",
         variant: "destructive",
       });
     } finally {
@@ -214,6 +221,12 @@ const AdminDashboard = () => {
               description="View and edit all blog posts"
               icon={FileText}
               onClick={() => navigate("/admin/blog")}
+            />
+            <QuickAction
+              title="Manage Reviews"
+              description="Approve or reject customer reviews"
+              icon={MessageSquare}
+              onClick={() => navigate("/admin/reviews")}
             />
             <QuickAction
               title="View Website"

@@ -14,7 +14,7 @@ const DiagnosticPage = () => {
   const fetchProperties = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("properties")
         .select("id, title, floor_plans, payment_plan, handover_date")
         .limit(10);
@@ -36,7 +36,7 @@ const DiagnosticPage = () => {
   const checkColumns = async () => {
     try {
       // Try to query the columns
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("properties")
         .select("*")
         .limit(1);

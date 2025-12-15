@@ -10,36 +10,117 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Bed, Bath, Square, MapPin, Heart, Grid3x3, List } from "lucide-react";
+import { Bed, Bath, Square, MapPin, Heart, Grid3x3, List, Search, Building2, X, ChevronDown } from "lucide-react";
+import { useIsPropertySaved, useToggleSaveProperty } from "@/hooks/useSavedProperties";
+import { useAuth } from "@/contexts/AuthContext.v2";
+import { useToast } from "@/hooks/use-toast";
 import { Link, useSearchParams } from "react-router-dom";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
 import { parsePropertyTypes } from "@/lib/utils";
+import { Property } from "@/types/property";
+import { fetchBuyProperties } from "@/lib/supabase-queries";
 
-type Property = Tables<"properties">;
+// Helper function to format price in K or M for slider display
+const formatSliderPrice = (value: number): string => {
+  if (value >= 10000000) return "10M+";
+  if (value >= 1000000) {
+    const millions = value / 1000000;
+    // Clean display: 1M, 1.5M, 2M, etc.
+    return millions % 1 === 0 ? `${millions}M` : `${millions.toFixed(1).replace(/\.0$/, '')}M`;
+  }
+  // For values under 1M, show in K
+  return `${Math.round(value / 1000)}K`;
+};
+
+// Helper function to parse price from various formats (numeric, "366K", "1.2M", "Starting from AED 366K", etc.)
+const parsePriceValue = (numericPrice: number | null | undefined, displayPrice: string | null | undefined): number => {
+  // First try the numeric price field
+  if (typeof numericPrice === "number" && numericPrice > 0) {
+    return numericPrice;
+  }
+  
+  // Try to parse from display string
+  if (!displayPrice) return 0;
+  
+  const text = displayPrice.toLowerCase().replace(/,/g, "");
+  
+  // Look for patterns like "366k", "1.2m", "2m", etc.
+  const millionMatch = text.match(/([\d.]+)\s*m(?:illion)?/i);
+  if (millionMatch) {
+    return parseFloat(millionMatch[1]) * 1000000;
+  }
+  
+  const thousandMatch = text.match(/([\d.]+)\s*k/i);
+  if (thousandMatch) {
+    return parseFloat(thousandMatch[1]) * 1000;
+  }
+  
+  // Try to find any number (could be full price like 366000)
+  const numberMatch = text.match(/([\d,]+(?:\.\d+)?)/g);
+  if (numberMatch) {
+    // Get the largest number found (likely the price)
+    const numbers = numberMatch.map(n => parseFloat(n.replace(/,/g, "")));
+    const maxNum = Math.max(...numbers);
+    if (maxNum > 0) return maxNum;
+  }
+  
+  return 0;
+};
 
 const usePublishedProperties = (search: string) => {
   return useQuery<Property[], Error>({
     queryKey: ["properties", search],
-    queryFn: async () => {
-      let query = supabase
-        .from("properties")
-        .select("*")
-        .eq("published", true)
-        .in("purpose", ["buy", "sale"])
-        .order("created_at", { ascending: false });
-
-      if (search.trim()) {
-        query = query.or(`title.ilike.%${search}%,location.ilike.%${search}%`);
-      }
-
-      const { data, error } = await query.limit(48);
-      if (error) throw error;
-      return (data || []) as Property[];
-    },
+    queryFn: () => fetchBuyProperties(search),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: 2,
   });
+};
+
+// Heart Button Component
+const HeartButton = ({ propertyId, propertyTitle, propertyImage, propertyPrice }: { 
+  propertyId: string; 
+  propertyTitle: string; 
+  propertyImage?: string;
+  propertyPrice?: number;
+}) => {
+  const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
+  const { data: isFavorite = false } = useIsPropertySaved(propertyId);
+  const { toggleSave, isLoading } = useToggleSaveProperty();
+
+  const handleClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!isAuthenticated) {
+      toast({
+        title: "Login Required",
+        description: "Make sure you are logged in",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    await toggleSave(propertyId, isFavorite, {
+      title: propertyTitle,
+      image: propertyImage,
+      price: propertyPrice?.toString(),
+    });
+  };
+
+  return (
+    <button 
+      onClick={handleClick}
+      disabled={isLoading}
+      className="absolute top-4 right-4 w-11 h-11 bg-white/95 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white hover:scale-110 transition-all shadow-lg z-10 disabled:opacity-50"
+    >
+      <Heart className={`h-5 w-5 transition-colors ${isFavorite ? 'text-red-500 fill-current' : 'text-gray-700 hover:text-red-500'}`} />
+    </button>
+  );
 };
 
 const Buy = () => {
@@ -53,30 +134,187 @@ const Buy = () => {
   const [bedrooms, setBedrooms] = useState<string>("all");
   const [developer, setDeveloper] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("relevance");
-  const [minPrice, setMinPrice] = useState<number>(500000);
-  const [maxPrice, setMaxPrice] = useState<number>(10000000);
-  const [minSize, setMinSize] = useState<number>(500);
-  const [maxSize, setMaxSize] = useState<number>(10000);
+  const [minPrice, setMinPrice] = useState<string>("any");
+  const [maxPrice, setMaxPrice] = useState<string>("any");
+  const [minSize, setMinSize] = useState<number | null>(null);
+  const [maxSize, setMaxSize] = useState<number | null>(null);
+  
+  // Min Price options for dropdown
+  const minPriceOptions = [
+    { value: "any", label: "Any" },
+    { value: "300000", label: "300K" },
+    { value: "600000", label: "600K" },
+    { value: "1000000", label: "1M" },
+    { value: "2000000", label: "2M" },
+    { value: "3000000", label: "3M" },
+    { value: "4000000", label: "4M" },
+    { value: "5000000", label: "5M" },
+  ];
+  
+  // Max Price options for dropdown
+  const maxPriceOptions = [
+    { value: "any", label: "Any" },
+    { value: "600000", label: "600K" },
+    { value: "1000000", label: "1M" },
+    { value: "2000000", label: "2M" },
+    { value: "3000000", label: "3M" },
+    { value: "4000000", label: "4M" },
+    { value: "5000000", label: "5M" },
+    { value: "6000000", label: "6M" },
+    { value: "7000000", label: "7M" },
+    { value: "8000000", label: "8M" },
+    { value: "9000000", label: "9M" },
+    { value: "10000000", label: "10M+" },
+  ];
+  
+  // Get filtered max options based on selected min price
+  const getFilteredMaxOptions = () => {
+    if (minPrice === "any") return maxPriceOptions;
+    const minVal = parseInt(minPrice);
+    return maxPriceOptions.filter(opt => opt.value === "any" || parseInt(opt.value) >= minVal);
+  };
+  
+  // Get filtered min options based on selected max price
+  const getFilteredMinOptions = () => {
+    if (maxPrice === "any") return minPriceOptions;
+    const maxVal = parseInt(maxPrice);
+    return minPriceOptions.filter(opt => opt.value === "any" || parseInt(opt.value) <= maxVal);
+  };
+  
+  // Search filter states for Developer and Location
+  const [developerSearch, setDeveloperSearch] = useState("");
+  const [locationSearch, setLocationSearch] = useState("");
+  const [showDeveloperDropdown, setShowDeveloperDropdown] = useState(false);
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const developerRef = useRef<HTMLDivElement>(null);
+  const locationRef = useRef<HTMLDivElement>(null);
+  
   const { data: allProperties = [], isLoading } = usePublishedProperties(search);
+
+  // Compute actual price range from properties
+  const priceRange = useMemo(() => {
+    const prices = allProperties
+      .map(p => p.price ?? 0)
+      .filter(p => p > 0);
+    if (prices.length === 0) return { min: 300000, max: 10000000, step: 50000 };
+    
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    // Round min down and max up to nice numbers
+    const roundedMin = Math.floor(min / 100000) * 100000;
+    const roundedMax = Math.ceil(max / 100000) * 100000;
+    // Calculate step based on range (aim for ~20-50 steps)
+    const range = roundedMax - roundedMin;
+    const step = range <= 1000000 ? 25000 : range <= 5000000 ? 100000 : 250000;
+    
+    return { min: roundedMin || 100000, max: roundedMax || 10000000, step };
+  }, [allProperties]);
+
+  // Compute actual size range from properties
+  const sizeRange = useMemo(() => {
+    const parseSqft = (value: string | number | null | undefined) => {
+      if (typeof value === "number") return value;
+      const text = (value ?? "").toString().replace(/,/g, "");
+      const match = text.match(/([0-9]+(\.[0-9]+)?)/); 
+      return match ? parseFloat(match[1]) : 0;
+    };
+    const sizes = allProperties
+      .map(p => parseSqft(p.size_sqft))
+      .filter(s => s > 0);
+    if (sizes.length === 0) return { min: 500, max: 4000, step: 50 };
+    
+    const min = Math.min(...sizes);
+    const roundedMin = Math.floor(min / 100) * 100;
+    const step = 50;
+    
+    // Always use 4000 as max regardless of actual property sizes
+    return { min: roundedMin || 100, max: 4000, step };
+  }, [allProperties]);
+
+  // Initialize size sliders when data loads
+  useEffect(() => {
+    if (allProperties.length > 0) {
+      if (minSize === null) setMinSize(sizeRange.min);
+      if (maxSize === null) setMaxSize(sizeRange.max);
+    }
+  }, [allProperties.length, sizeRange]);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (developerRef.current && !developerRef.current.contains(event.target as Node)) {
+        setShowDeveloperDropdown(false);
+      }
+      if (locationRef.current && !locationRef.current.contains(event.target as Node)) {
+        setShowLocationDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Build dynamic developer options from all properties
+  const developerOptions = useMemo(() => {
+    const map = new Map<string, { value: string; label: string; count: number }>();
+    allProperties.forEach((property) => {
+      const dev = property.developer?.trim();
+      if (!dev) return;
+      const value = dev.toLowerCase();
+      if (map.has(value)) {
+        const existing = map.get(value)!;
+        existing.count++;
+      } else {
+        map.set(value, { value, label: dev, count: 1 });
+      }
+    });
+    return Array.from(map.values())
+      .sort((a, b) => b.count - a.count); // Sort by property count (most properties first)
+  }, [allProperties]);
+
+  // Filter developers based on search
+  const filteredDevelopers = useMemo(() => {
+    if (!developerSearch.trim()) return developerOptions;
+    const searchLower = developerSearch.toLowerCase();
+    return developerOptions.filter(dev => 
+      dev.label.toLowerCase().includes(searchLower) || 
+      dev.value.toLowerCase().includes(searchLower)
+    );
+  }, [developerSearch, developerOptions]);
 
   // Build dynamic location options from all properties (location, city, area)
   const locationOptions = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, { value: string; label: string; count: number }>();
     allProperties.forEach((property) => {
       const candidates = [property.location, property.city, typeof property.area === "string" ? property.area : ""];
       candidates.forEach((raw) => {
         const label = (raw ?? "").toString().trim();
         if (!label) return;
         const value = label.toLowerCase();
-        if (!map.has(value)) {
-          map.set(value, label);
+        if (map.has(value)) {
+          const existing = map.get(value)!;
+          existing.count++;
+        } else {
+          map.set(value, { value, label, count: 1 });
         }
       });
     });
-    return Array.from(map.entries())
-      .map(([value, label]) => ({ value, label }))
-      .sort((a, b) => a.label.localeCompare(b.label));
+    return Array.from(map.values())
+      .sort((a, b) => b.count - a.count); // Sort by property count (most properties first)
   }, [allProperties]);
+
+  // Filter locations based on search
+  const filteredLocations = useMemo(() => {
+    if (!locationSearch.trim()) return locationOptions;
+    const searchLower = locationSearch.toLowerCase();
+    return locationOptions.filter(loc => 
+      loc.label.toLowerCase().includes(searchLower) || 
+      loc.value.toLowerCase().includes(searchLower)
+    );
+  }, [locationSearch, locationOptions]);
+
+  // Get display labels
+  const selectedDeveloperLabel = developer === "all" ? "" : developerOptions.find(d => d.value === developer)?.label || developer;
+  const selectedLocationLabel = location === "all" ? "" : locationOptions.find(l => l.value === location)?.label || location;
 
   // Initialize filters from URL query parameters
   useEffect(() => {
@@ -90,6 +328,14 @@ const Buy = () => {
     if (cityParam) setCity(cityParam);
     if (beds) setBedrooms(beds);
   }, [searchParams]);
+
+  // Helper function to parse sqft values
+  const parseSqftValue = (value: string | number | null | undefined) => {
+    if (typeof value === "number") return value;
+    const text = (value ?? "").toString().replace(/,/g, "");
+    const match = text.match(/([0-9]+(\.\d+)?)/);
+    return match ? parseFloat(match[1]) : 0;
+  };
 
   // Apply filters
   const filteredProperties = allProperties.filter((property) => {
@@ -107,43 +353,69 @@ const Buy = () => {
     }
     if (city !== "all" && property.city?.toLowerCase() !== city.toLowerCase()) return false;
     if (bedrooms !== "all") {
-      // Normalize bedroom text like "Studio - 2 Bedroom" to the numeric bedroom count
-      const propBedrooms = (() => {
-        const raw = property.bedrooms;
-        if (typeof raw === "number") return raw;
+      // Parse bedroom range from text like "Studio - 4 Bedroom", "1-3 Bedroom", "3 Bedroom"
+      const parseBedroomRange = (raw: string | number | null | undefined): { min: number; max: number; hasStudio: boolean } => {
+        if (typeof raw === "number") return { min: raw, max: raw, hasStudio: raw === 0 };
+        
         const text = String(raw ?? "").toLowerCase();
-        // If it mentions studio at all (e.g., "Studio - 2 Bedroom"), treat as studio (0)
-        if (text.includes("studio")) return 0;
-        const matches = text.match(/\d+/g);
-        if (matches && matches.length) return parseInt(matches[matches.length - 1]);
-        return 0;
-      })();
+        const hasStudio = text.includes("studio");
+        const numbers = text.match(/\d+/g);
+        
+        if (!numbers || numbers.length === 0) {
+          // Only "Studio" mentioned
+          return { min: 0, max: hasStudio ? 0 : 0, hasStudio };
+        }
+        
+        const nums = numbers.map(n => parseInt(n));
+        const min = hasStudio ? 0 : Math.min(...nums);
+        const max = Math.max(...nums);
+        
+        return { min, max, hasStudio };
+      };
+      
+      const propRange = parseBedroomRange(property.bedrooms);
       
       if (bedrooms === "studio") {
-        // Studio means exactly 0 bedrooms
-        if (propBedrooms !== 0) return false;
+        // Studio filter: property must include studio (hasStudio or min is 0)
+        if (!propRange.hasStudio && propRange.min !== 0) return false;
       } else if (bedrooms === "5+") {
-        // 5+ means 5 or more bedrooms
-        if (propBedrooms < 5) return false;
+        // 5+ means property has 5 or more bedrooms available
+        if (propRange.max < 5) return false;
       } else {
-        // 1, 2, 3, 4 means that many bedrooms or LESS (maximum filter)
-        // Selecting 3 bedrooms shows: Studio(0), 1, 2, 3 bedroom properties
+        // 1, 2, 3, 4: show properties that INCLUDE this bedroom count in their range
+        // E.g., "4" should match "Studio - 4 Bedroom" but NOT "Studio - 3 Bedroom"
         const bedroomNum = parseInt(bedrooms);
-        if (propBedrooms > bedroomNum) return false;
+        // Property must have this bedroom count available (within its range)
+        if (bedroomNum < propRange.min || bedroomNum > propRange.max) return false;
       }
     }
     if (developer !== "all" && !property.developer?.toLowerCase().includes(developer.toLowerCase())) return false;
 
-    // Price filter - only apply if user moved sliders
-    if (minPrice !== 500000 || maxPrice !== 10000000) {
-      const price = property.price ?? 0;
-      if (price === 0 || price < minPrice || price > maxPrice) return false;
+    // Price filter - parse price from numeric field or display text
+    const price = parsePriceValue(property.price, property.price_display);
+    
+    // Check minimum price filter
+    if (minPrice !== "any") {
+      const minPriceNum = parseInt(minPrice);
+      // If property has no parseable price, include it (don't exclude)
+      if (price > 0 && price < minPriceNum) return false;
+    }
+    
+    // Check maximum price filter (10M+ means no upper limit)
+    if (maxPrice !== "any" && maxPrice !== "10000000") {
+      const maxPriceNum = parseInt(maxPrice);
+      // If property has no parseable price, include it (don't exclude)
+      // Only exclude if price is known and exceeds max
+      if (price > 0 && price > maxPriceNum) return false;
     }
 
     // Size filter - only apply if user moved sliders
-    if (minSize !== 500 || maxSize !== 10000) {
+    const currentMinSize = minSize ?? sizeRange.min;
+    const currentMaxSize = maxSize ?? sizeRange.max;
+    if (currentMinSize !== sizeRange.min || currentMaxSize !== sizeRange.max) {
       const size = parseSqftValue(property.size_sqft);
-      if (size === 0 || size < minSize || size > maxSize) return false;
+      // Include properties with no size (size === 0), only filter if size is known
+      if (size > 0 && (size < currentMinSize || size > currentMaxSize)) return false;
     }
     return true;
   });
@@ -152,22 +424,21 @@ const Buy = () => {
   const properties = [...filteredProperties].sort((a, b) => {
     switch (sortBy) {
       case "price-low":
-        return (a.price ?? 0) - (b.price ?? 0);
+        // Price: Low to High (ascending)
+        const priceA_low = parsePriceValue(a.price, a.price_display);
+        const priceB_low = parsePriceValue(b.price, b.price_display);
+        return priceA_low - priceB_low;
       case "price-high":
-        return (b.price ?? 0) - (a.price ?? 0);
+        // Price: High to Low (descending)
+        const priceA_high = parsePriceValue(a.price, a.price_display);
+        const priceB_high = parsePriceValue(b.price, b.price_display);
+        return priceB_high - priceA_high;
       case "newest":
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       default:
         return 0;
     }
   });
-
-  const parseSqftValue = (value: string | number | null | undefined) => {
-    if (typeof value === "number") return value;
-    const text = (value ?? "").toString().replace(/,/g, "");
-    const match = text.match(/([0-9]+(\.\d+)?)/);
-    return match ? parseFloat(match[1]) : 0;
-  };
 
   const formatPrice = (price?: number) =>
     typeof price === "number"
@@ -233,10 +504,10 @@ const Buy = () => {
                     setLocation("all");
                     setBedrooms("all");
                     setDeveloper("all");
-                    setMinPrice(500000);
-                    setMaxPrice(10000000);
-                    setMinSize(500);
-                    setMaxSize(10000);
+                    setMinPrice("any");
+                    setMaxPrice("any");
+                    setMinSize(sizeRange.min);
+                    setMaxSize(sizeRange.max);
                     setSearch("");
                   }}
                 >
@@ -254,48 +525,195 @@ const Buy = () => {
               {/* Filters Sidebar */}
               <aside className="lg:w-72 flex-shrink-0">
                 <Card className="sticky top-20 shadow-md">
-                  <CardContent className="p-4">
-                    <h3 className="text-base font-bold mb-4">Filters</h3>
-                    <div className="space-y-4">
+                  <CardContent className="p-3">
+                    <h3 className="text-sm font-bold mb-3">Filters</h3>
+                    <div className="space-y-3">
+                      {/* Developer - Searchable dropdown */}
+                      <div ref={developerRef} className="relative">
+                        <label className="block text-xs font-semibold mb-1.5">Developer</label>
+                        <div 
+                          className={`group flex items-center gap-2 px-2.5 py-1.5 bg-white border rounded-lg cursor-pointer transition-all duration-200 ${
+                            showDeveloperDropdown 
+                              ? "border-primary ring-2 ring-primary/20 shadow-sm" 
+                              : "border-gray-200 hover:border-primary/50"
+                          }`}
+                          onClick={() => setShowDeveloperDropdown(!showDeveloperDropdown)}
+                        >
+                          <Building2 className="h-3.5 w-3.5 text-primary/70 flex-shrink-0" />
+                          <input
+                            type="text"
+                            placeholder="Search developers..."
+                            value={showDeveloperDropdown ? developerSearch : selectedDeveloperLabel || "All developers"}
+                            onChange={(e) => {
+                              setDeveloperSearch(e.target.value);
+                              setShowDeveloperDropdown(true);
+                            }}
+                            onFocus={() => {
+                              setShowDeveloperDropdown(true);
+                              setDeveloperSearch("");
+                            }}
+                            className="flex-1 text-xs bg-transparent border-0 outline-none placeholder:text-gray-400"
+                          />
+                          {developer !== "all" ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeveloper("all");
+                                setDeveloperSearch("");
+                              }}
+                              className="p-0.5 hover:bg-gray-100 rounded transition-colors"
+                            >
+                              <X className="h-3 w-3 text-gray-400" />
+                            </button>
+                          ) : (
+                            <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-200 ${showDeveloperDropdown ? "rotate-180" : ""}`} />
+                          )}
+                        </div>
+                        
+                        {/* Developer Dropdown */}
+                        {showDeveloperDropdown && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-100 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto animate-in fade-in-0 zoom-in-95 duration-150">
+                            <button
+                              onClick={() => {
+                                setDeveloper("all");
+                                setDeveloperSearch("");
+                                setShowDeveloperDropdown(false);
+                              }}
+                              className={`w-full px-3 py-2 text-left text-xs hover:bg-primary/5 transition-colors flex items-center justify-between ${developer === "all" ? "bg-primary/10 text-primary font-medium" : ""}`}
+                            >
+                              <span className="flex items-center gap-2">
+                                <Building2 className="h-3 w-3" />
+                                All Developers
+                              </span>
+                              <span className="text-[10px] text-gray-400">{allProperties.length}</span>
+                            </button>
+                            {filteredDevelopers.map((dev) => (
+                              <button
+                                key={dev.value}
+                                onClick={() => {
+                                  setDeveloper(dev.value);
+                                  setDeveloperSearch("");
+                                  setShowDeveloperDropdown(false);
+                                }}
+                                className={`w-full px-3 py-2 text-left text-xs hover:bg-primary/5 transition-colors flex items-center justify-between ${developer === dev.value ? "bg-primary/10 text-primary font-medium" : ""}`}
+                              >
+                                <span className="flex items-center gap-2">
+                                  <Building2 className="h-3 w-3" />
+                                  {dev.label}
+                                </span>
+                                <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{dev.count}</span>
+                              </button>
+                            ))}
+                            {filteredDevelopers.length === 0 && (
+                              <div className="px-3 py-2 text-xs text-gray-400 text-center">No developers found</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Completion Status */}
                       <div>
-                        <label className="block text-sm font-semibold mb-2">Completion Status</label>
+                        <label className="block text-xs font-semibold mb-1.5">Completion Status</label>
                         <Select value={completionStatus} onValueChange={setCompletionStatus}>
-                          <SelectTrigger>
+                          <SelectTrigger className="h-8 text-xs">
                             <SelectValue placeholder="All" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">All</SelectItem>
                             <SelectItem value="ready">Ready</SelectItem>
                             <SelectItem value="offplan">Off-Plan</SelectItem>
-                            <SelectItem value="underconstruction">Under Construction</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
 
-                      {/* Location */}
-                      <div>
-                        <label className="block text-sm font-semibold mb-2">Location</label>
-                        <Select value={location} onValueChange={setLocation}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select area" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Areas</SelectItem>
-                            {locationOptions.map((opt) => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </SelectItem>
+                      {/* Location - Searchable dropdown */}
+                      <div ref={locationRef} className="relative">
+                        <label className="block text-xs font-semibold mb-1.5">Location</label>
+                        <div 
+                          className={`group flex items-center gap-2 px-2.5 py-1.5 bg-white border rounded-lg cursor-pointer transition-all duration-200 ${
+                            showLocationDropdown 
+                              ? "border-primary ring-2 ring-primary/20 shadow-sm" 
+                              : "border-gray-200 hover:border-primary/50"
+                          }`}
+                          onClick={() => setShowLocationDropdown(!showLocationDropdown)}
+                        >
+                          <MapPin className="h-3.5 w-3.5 text-primary/70 flex-shrink-0" />
+                          <input
+                            type="text"
+                            placeholder="Search locations..."
+                            value={showLocationDropdown ? locationSearch : selectedLocationLabel || "All Areas"}
+                            onChange={(e) => {
+                              setLocationSearch(e.target.value);
+                              setShowLocationDropdown(true);
+                            }}
+                            onFocus={() => {
+                              setShowLocationDropdown(true);
+                              setLocationSearch("");
+                            }}
+                            className="flex-1 text-xs bg-transparent border-0 outline-none placeholder:text-gray-400"
+                          />
+                          {location !== "all" ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLocation("all");
+                                setLocationSearch("");
+                              }}
+                              className="p-0.5 hover:bg-gray-100 rounded transition-colors"
+                            >
+                              <X className="h-3 w-3 text-gray-400" />
+                            </button>
+                          ) : (
+                            <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-200 ${showLocationDropdown ? "rotate-180" : ""}`} />
+                          )}
+                        </div>
+                        
+                        {/* Location Dropdown */}
+                        {showLocationDropdown && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-100 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto animate-in fade-in-0 zoom-in-95 duration-150">
+                            <button
+                              onClick={() => {
+                                setLocation("all");
+                                setLocationSearch("");
+                                setShowLocationDropdown(false);
+                              }}
+                              className={`w-full px-3 py-2 text-left text-xs hover:bg-primary/5 transition-colors flex items-center justify-between ${location === "all" ? "bg-primary/10 text-primary font-medium" : ""}`}
+                            >
+                              <span className="flex items-center gap-2">
+                                <MapPin className="h-3 w-3" />
+                                All Areas
+                              </span>
+                              <span className="text-[10px] text-gray-400">{allProperties.length}</span>
+                            </button>
+                            {filteredLocations.map((loc) => (
+                              <button
+                                key={loc.value}
+                                onClick={() => {
+                                  setLocation(loc.value);
+                                  setLocationSearch("");
+                                  setShowLocationDropdown(false);
+                                }}
+                                className={`w-full px-3 py-2 text-left text-xs hover:bg-primary/5 transition-colors flex items-center justify-between ${location === loc.value ? "bg-primary/10 text-primary font-medium" : ""}`}
+                              >
+                                <span className="flex items-center gap-2">
+                                  <MapPin className="h-3 w-3" />
+                                  {loc.label}
+                                </span>
+                                <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{loc.count}</span>
+                              </button>
                             ))}
-                          </SelectContent>
-                        </Select>
+                            {filteredLocations.length === 0 && (
+                              <div className="px-3 py-2 text-xs text-gray-400 text-center">No locations found</div>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Property Type */}
                       <div>
-                        <label className="block text-sm font-semibold mb-2">Property Type</label>
+                        <label className="block text-xs font-semibold mb-1.5">Property Type</label>
                         <Select value={propertyType} onValueChange={setPropertyType}>
-                          <SelectTrigger>
+                          <SelectTrigger className="h-8 text-xs">
                             <SelectValue placeholder="All types" />
                           </SelectTrigger>
                           <SelectContent>
@@ -312,14 +730,14 @@ const Buy = () => {
 
                       {/* Bedrooms */}
                       <div>
-                        <label className="block text-sm font-semibold mb-2">Bedrooms</label>
-                        <div className="grid grid-cols-3 gap-2">
+                        <label className="block text-xs font-semibold mb-1.5">Bedrooms</label>
+                        <div className="grid grid-cols-3 gap-1.5">
                           {[{ label: "All", value: "all" }, { label: "Studio", value: "studio" }, { label: "1", value: "1" }, { label: "2", value: "2" }, { label: "3", value: "3" }, { label: "4", value: "4" }, { label: "5+", value: "5+" }].map((bed) => (
                             <Button
                               key={bed.value}
                               variant={bedrooms === bed.value ? "default" : "outline"}
                               size="sm"
-                              className={bedrooms === bed.value ? "bg-primary text-white" : "hover:bg-primary hover:text-white"}
+                              className={`h-7 text-xs ${bedrooms === bed.value ? "bg-primary text-white" : "hover:bg-primary hover:text-white"}`}
                               onClick={() => setBedrooms(bed.value)}
                             >
                               {bed.label}
@@ -330,78 +748,100 @@ const Buy = () => {
 
                       {/* Price Range */}
                       <div>
-                        <label className="block text-sm font-semibold mb-2">
+                        <label className="block text-xs font-semibold mb-1.5">
                           Price Range (AED)
                         </label>
-                        <Slider
-                          value={[minPrice, maxPrice]}
-                          onValueChange={([min, max]) => {
-                            setMinPrice(min);
-                            setMaxPrice(max);
-                          }}
-                          min={500000}
-                          max={10000000}
-                          step={50000}
-                          className="mb-2"
-                        />
-                        <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>{Math.round(minPrice / 1000)}K</span>
-                          <span>{Math.round(maxPrice / 1000)}K</span>
+                        <div className="flex gap-2">
+                          {/* Min Price Dropdown */}
+                          <div className="flex-1">
+                            <Select value={minPrice} onValueChange={(value) => {
+                              setMinPrice(value);
+                              // Auto-adjust max if min is higher than max
+                              if (value !== "any" && maxPrice !== "any" && parseInt(value) > parseInt(maxPrice)) {
+                                setMaxPrice("any");
+                              }
+                            }}>
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue placeholder="Min Price" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {getFilteredMinOptions().map((option) => (
+                                  <SelectItem key={option.value} value={option.value} className="text-xs">
+                                    {option.value === "any" ? "Min" : option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+                          <span className="flex items-center text-xs text-muted-foreground">to</span>
+                          
+                          {/* Max Price Dropdown */}
+                          <div className="flex-1">
+                            <Select value={maxPrice} onValueChange={(value) => {
+                              setMaxPrice(value);
+                              // Auto-adjust min if max is lower than min
+                              if (value !== "any" && minPrice !== "any" && parseInt(value) < parseInt(minPrice)) {
+                                setMinPrice("any");
+                              }
+                            }}>
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue placeholder="Max Price" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {getFilteredMaxOptions().map((option) => (
+                                  <SelectItem key={option.value} value={option.value} className="text-xs">
+                                    {option.value === "any" ? "Max" : option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
+                        {/* Show selected range */}
+                        {(minPrice !== "any" || maxPrice !== "any") && (
+                          <div className="mt-1 text-[10px] text-muted-foreground text-center">
+                            {minPrice !== "any" ? minPriceOptions.find(o => o.value === minPrice)?.label : "Any"}
+                            {" - "}
+                            {maxPrice !== "any" ? maxPriceOptions.find(o => o.value === maxPrice)?.label : "Any"}
+                          </div>
+                        )}
                       </div>
 
                       {/* Size Range */}
                       <div>
-                        <label className="block text-sm font-semibold mb-2">Size (sqft)</label>
+                        <label className="block text-xs font-semibold mb-1.5">Size (sqft)</label>
                         <Slider
-                          value={[minSize, maxSize]}
+                          value={[minSize ?? sizeRange.min, maxSize ?? sizeRange.max]}
                           onValueChange={([min, max]) => {
                             setMinSize(min);
                             setMaxSize(max);
                           }}
-                          min={500}
-                          max={10000}
-                          step={50}
-                          className="mb-2"
+                          min={sizeRange.min}
+                          max={sizeRange.max}
+                          step={sizeRange.step}
+                          className="mb-1"
                         />
                         <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>{minSize.toLocaleString()}</span>
-                          <span>{maxSize.toLocaleString()}</span>
+                          <span>{(minSize ?? sizeRange.min).toLocaleString()}</span>
+                          <span>{(maxSize ?? sizeRange.max).toLocaleString()}</span>
                         </div>
                       </div>
 
-                      {/* Developer */}
-                      <div>
-                        <label className="block text-sm font-semibold mb-2">Developer</label>
-                        <Select value={developer} onValueChange={setDeveloper}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="All developers" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All</SelectItem>
-                            <SelectItem value="emaar">Emaar</SelectItem>
-                            <SelectItem value="damac">Damac</SelectItem>
-                            <SelectItem value="nakheel">Nakheel</SelectItem>
-                            <SelectItem value="sobha">Sobha</SelectItem>
-                            <SelectItem value="binghatti">Binghatti</SelectItem>
-                            <SelectItem value="azizi">Azizi</SelectItem>
-                            <SelectItem value="meraas">Meraas</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
                       <Button 
-                        className="w-full bg-gradient-primary hover:opacity-90"
+                        className="w-full h-8 text-xs bg-gradient-primary hover:opacity-90"
                         onClick={() => {
                           setPropertyType("all");
                           setCompletionStatus("all");
                           setLocation("all");
                           setBedrooms("all");
                           setDeveloper("all");
-                          setMinPrice(500000);
-                          setMaxPrice(10000000);
-                          setMinSize(500);
-                          setMaxSize(10000);
+                          setMinPrice("any");
+                          setMaxPrice("any");
+                          setMinSize(sizeRange.min);
+                          setMaxSize(sizeRange.max);
+                          setDeveloperSearch("");
+                          setLocationSearch("");
                         }}
                       >
                         Clear All Filters
@@ -534,9 +974,12 @@ const Buy = () => {
                               )}
                               
                               {/* Overlay elements with improved styling */}
-                              <button className="absolute top-4 right-4 w-11 h-11 bg-white/95 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white hover:scale-110 transition-all shadow-lg z-10">
-                                <Heart className="h-5 w-5 text-gray-700 hover:text-red-500 transition-colors" />
-                              </button>
+                              <HeartButton 
+                                propertyId={property.id}
+                                propertyTitle={property.title}
+                                propertyImage={property.featured_image}
+                                propertyPrice={property.price}
+                              />
                               
                               {/* Price badge with enhanced styling */}
                               <div className="absolute bottom-4 left-4 bg-white rounded-xl px-5 py-3 z-10 shadow-xl">

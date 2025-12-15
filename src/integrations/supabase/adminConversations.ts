@@ -12,6 +12,12 @@ import type {
 
 const API_BASE_URL = (import.meta.env.VITE_ADMIN_API_URL ?? "/api").replace(/\/$/, "");
 const hasAdminApi = Boolean(import.meta.env.VITE_ADMIN_API_URL);
+const ADMIN_API_KEY = "TrueNester2025_AdminAPI_SecureKey_Dubai_Development_Production_v1";
+
+const getAuthHeaders = () => ({
+  "Content-Type": "application/json",
+  "x-admin-api-key": ADMIN_API_KEY,
+});
 
 const mapMessage = (payload: any): ChatMessage => ({
   id: payload.id,
@@ -295,7 +301,9 @@ export const adminConversationsApi = {
         params.set("page", String(page));
         params.set("limit", String(limit));
 
-        const response = await fetch(buildUrl("/admin/conversations", params));
+        const response = await fetch(buildUrl("/admin/conversations", params), {
+          headers: getAuthHeaders(),
+        });
         if (!response.ok) {
           throw new Error("Failed to fetch conversations");
         }
@@ -316,7 +324,9 @@ export const adminConversationsApi = {
   async fetchConversationById(id: string) {
     if (hasAdminApi) {
       try {
-        const response = await fetch(buildUrl(`/admin/conversations/${id}`));
+        const response = await fetch(buildUrl(`/admin/conversations/${id}`), {
+          headers: getAuthHeaders(),
+        });
         if (!response.ok) {
           throw new Error("Failed to fetch conversation");
         }
@@ -350,7 +360,7 @@ export const adminConversationsApi = {
       try {
         const response = await fetch(buildUrl(`/admin/conversations/${id}/follow-ups`), {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders(),
           body: JSON.stringify(task),
         });
 
@@ -387,7 +397,9 @@ export const adminConversationsApi = {
         if (params?.range?.from) query.set("from", params.range.from);
         if (params?.range?.to) query.set("to", params.range.to);
 
-        const response = await fetch(buildUrl("/admin/analytics", query));
+        const response = await fetch(buildUrl("/admin/analytics", query), {
+          headers: getAuthHeaders(),
+        });
         if (!response.ok) {
           throw new Error("Failed to fetch analytics");
         }
@@ -404,7 +416,7 @@ export const adminConversationsApi = {
   async exportConversations(payload: { format: "pdf" | "csv" | "xlsx"; filters?: SearchFilters }) {
     const response = await fetch(buildUrl("/admin/conversations/export"), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
 
@@ -423,7 +435,9 @@ export const adminConversationsApi = {
         if (filters) {
           params.set("filters", JSON.stringify(filters));
         }
-        const response = await fetch(buildUrl("/admin/search", params));
+        const response = await fetch(buildUrl("/admin/search", params), {
+          headers: getAuthHeaders(),
+        });
         if (!response.ok) {
           throw new Error("Search failed");
         }

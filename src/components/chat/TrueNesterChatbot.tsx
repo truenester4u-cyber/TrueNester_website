@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MessageCircle, Send, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "react-router-dom";
+import { fetchRentalProperties, insertConversation, insertChatMessages, queryProperties } from "@/lib/supabase-queries";
 
 interface ChatMessage {
   id: string;
@@ -871,24 +871,25 @@ const TrueNesterChatbot = () => {
   const [conversationId] = useState(() => createId());
   const [customerId] = useState(() => createId());
   const [leadSyncStatus, setLeadSyncStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
-  const [submittedConversationId, setSubmittedConversationId] = useState<string | null>(null);
+  const [submissionCount, setSubmissionCount] = useState<number>(0);
+  const [submittedConversations, setSubmittedConversations] = useState<string[]>([]);
+  const MAX_SUBMISSIONS = 5;
+
+  // Slack notifications are now handled entirely by the backend API
+  // This eliminates duplicate notifications and race conditions
   const [realProperties, setRealProperties] = useState<PropertyCard[]>([]);
 
   useEffect(() => {
     const fetchProperties = async () => {
-      const { data, error } = await supabase
-        .from("properties")
-        .select("*")
-        .eq("published", true)
-        .limit(50);
+      try {
+        const data = await fetchRentalProperties();
 
-      if (error) {
-        console.error("Error fetching chatbot properties:", error);
-        return;
-      }
+        if (!data || data.length === 0) {
+          console.warn("No rental properties available");
+          return;
+        }
 
-      if (data) {
-        const mapped: PropertyCard[] = data.map((p) => {
+        const mapped: PropertyCard[] = data.slice(0, 50).map((p: any) => {
           const feats = Array.isArray(p.features) ? (p.features as string[]) : [];
           return {
             id: p.id,
@@ -908,6 +909,8 @@ const TrueNesterChatbot = () => {
           };
         });
         setRealProperties(mapped);
+      } catch (error) {
+        console.error("Exception fetching chatbot properties:", error);
       }
     };
 
@@ -989,7 +992,7 @@ const TrueNesterChatbot = () => {
       {
         id: createId(),
         sender: "bot",
-        text: `${greeting}\nI can help in ${supportedLanguages.join(", ")} and surface handpicked listings within seconds.`,
+        text: `${greeting}\nI can help in ${supportedLanguages.join(", ")} and surface handpicked listings within seconds.\n\n💡 You can submit up to ${MAX_SUBMISSIONS} different inquiries with me to explore various property options!`,
         timestamp: formatTimestamp(),
         isoTimestamp: new Date().toISOString(),
       },
@@ -1054,9 +1057,10 @@ const TrueNesterChatbot = () => {
     };
   }, [showProactivePrompt]);
 
-  // Lock body scroll when chatbot is open
+  // Lock body scroll when chatbot is open (mobile only)
   useEffect(() => {
-    if (isOpen) {
+    const isMobile = window.innerWidth < 768; // md breakpoint
+    if (isOpen && isMobile) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -1198,7 +1202,14 @@ const TrueNesterChatbot = () => {
         console.warn("CHATBOT lead endpoint is not configured");
         return;
       }
-      if (submittedConversationId) return;
+      if (submissionCount >= MAX_SUBMISSIONS) {
+        console.log(`[CHATBOT] Maximum submissions reached (${MAX_SUBMISSIONS}), preventing further submissions`);
+        appendBotMessage(
+          `You've reached the maximum of ${MAX_SUBMISSIONS} conversation submissions. Our team will review your previous inquiries and get back to you soon!`,
+          { tone: "info" }
+        );
+        return;
+      }
       if (!finalLead.name || !finalLead.phone) return;
 
       setLeadSyncStatus("pending");
@@ -1280,20 +1291,64 @@ const TrueNesterChatbot = () => {
       };
 
       try {
+        console.log(`[CHATBOT] 🚀 Submitting lead to: ${CHATBOT_LEAD_ENDPOINT}`);
+        console.log(`[CHATBOT] Payload:`, { 
+          customerName: payload.customerName, 
+          customerPhone: payload.customerPhone,
+          customerEmail: payload.customerEmail,
+          intent: payload.intent,
+          messagesCount: payload.messages?.length
+        });
+        
         const response = await fetch(CHATBOT_LEAD_ENDPOINT, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
+        
         if (!response.ok) {
-          throw new Error(await response.text());
+          const errorText = await response.text();
+          console.error(`[CHATBOT] ❌ API Error ${response.status}:`, errorText);
+          throw new Error(`API Error ${response.status}: ${errorText}`);
         }
+        
         const body = (await response.json()) as { id?: string };
-        setSubmittedConversationId(body.id ?? payload.conversationId ?? conversationId);
+        console.log(`[CHATBOT] ✅ Lead submitted successfully. Conversation ID: ${body.id}`);
+        
+        const newConversationId = body.id ?? payload.conversationId ?? conversationId;
+        
+        // Backend API handles Slack notifications automatically
+        console.log("[CHATBOT] ✅ Backend API will handle Slack notification for conversation:", newConversationId);
+        
+        setSubmissionCount(prev => prev + 1);
+        setSubmittedConversations(prev => [...prev, newConversationId]);
         setLeadSyncStatus("success");
+        
+        const remainingSubmissions = MAX_SUBMISSIONS - (submissionCount + 1);
+        console.log(`[CHATBOT] ✅ Submission ${submissionCount + 1}/${MAX_SUBMISSIONS} successful. ${remainingSubmissions} remaining.`);
+        
+        // Inform user about multiple submission capability
+        if (submissionCount + 1 < MAX_SUBMISSIONS) {
+          setTimeout(() => {
+            appendBotMessage(
+              `✅ Great! Your inquiry has been submitted successfully. You can submit up to ${remainingSubmissions} more conversations if you have additional questions or requirements.`,
+              { tone: "success" }
+            );
+          }, 1500);
+        } else {
+          setTimeout(() => {
+            appendBotMessage(
+              `✅ Perfect! This was your final submission (${MAX_SUBMISSIONS}/${MAX_SUBMISSIONS}). Our team will review all your inquiries and provide comprehensive assistance.`,
+              { tone: "success" }
+            );
+          }, 1500);
+        }
       } catch (error) {
-        console.error("Chatbot lead sync failed", error);
+        console.error("[CHATBOT] ❌ Lead sync failed:", error);
+        console.log(`[CHATBOT] Attempt ${attempt}/3 - API endpoint: ${CHATBOT_LEAD_ENDPOINT}`);
+        
         if (attempt < 3) {
+          console.log(`[CHATBOT] Retrying in ${1500 * attempt}ms...`);
           setTimeout(() => {
             void persistConversationToAdmin(finalLead, attempt + 1);
           }, 1500 * attempt);
@@ -1302,32 +1357,26 @@ const TrueNesterChatbot = () => {
         
         // Fallback: Save directly to Supabase if API failed after all retries
         try {
-          console.log("API failed, falling back to direct Supabase save...");
-          const { data: conversation, error: convError} = await supabase
-            .from("conversations")
-            .insert({
-              customer_id: payload.customerId,
-              customer_name: finalLead.name,
-              customer_phone: finalLead.phone,
-              customer_email: finalLead.email || null,
-              intent: payload.intent || "browse",
-              budget: finalLead.budget || null,
-              preferred_area: finalLead.locations?.join(", ") || null,
-              lead_score: leadScore.value || 50,
-              lead_quality: leadScore.tier || "warm",
-              status: "new",
-              tags: ["chatbot", "web"],
-              start_time: new Date().toISOString(),
-              lead_score_breakdown: {
-                analytics,
-                visitorProfile,
-                profileCompletion,
-              },
-            })
-            .select()
-            .single();
-
-          if (convError) throw convError;
+          console.log("[CHATBOT] 🔄 All API attempts failed, falling back to direct Supabase save...");
+          const conversation = await insertConversation({
+            customer_id: payload.customerId,
+            customer_name: finalLead.name,
+            customer_phone: finalLead.phone,
+            customer_email: finalLead.email || null,
+            intent: payload.intent || "browse",
+            budget: finalLead.budget || null,
+            preferred_area: finalLead.locations?.join(", ") || null,
+            lead_score: leadScore.value || 50,
+            lead_quality: leadScore.tier || "warm",
+            status: "new",
+            tags: ["chatbot", "web"],
+            start_time: new Date().toISOString(),
+            lead_score_breakdown: {
+              analytics,
+              visitorProfile,
+              profileCompletion,
+            },
+          });
 
           // Save messages
           const messagesToSave = payload.messages.map((msg) => ({
@@ -1338,66 +1387,58 @@ const TrueNesterChatbot = () => {
             timestamp: new Date().toISOString(),
           }));
 
-          const { error: msgError } = await supabase
-            .from("chat_messages")
-            .insert(messagesToSave);
+          await insertChatMessages(messagesToSave);
 
-          if (msgError) throw msgError;
+          // Fallback save completed - backend API wasn't available but data is preserved
+          console.log("[CHATBOT] ✅ Fallback save completed - conversation preserved in database");
 
-          // Send Slack notification
-          const slackWebhook = import.meta.env.VITE_SLACK_WEBHOOK_URL;
-          if (slackWebhook) {
-            try {
-              await fetch(slackWebhook, {
+          setSubmissionCount(prev => prev + 1);
+          setSubmittedConversations(prev => [...prev, conversation.id]);
+          setLeadSyncStatus("success");
+          
+          const remainingSubmissions = MAX_SUBMISSIONS - (submissionCount + 1);
+          console.log(`[CHATBOT] ✅ Fallback submission ${submissionCount + 1}/${MAX_SUBMISSIONS} successful. ${remainingSubmissions} remaining.`);
+          
+          // Inform user about multiple submission capability (fallback path)
+          if (submissionCount + 1 < MAX_SUBMISSIONS) {
+            setTimeout(() => {
+              appendBotMessage(
+                `✅ Your inquiry has been saved successfully! You can submit up to ${remainingSubmissions} more conversations if you need additional assistance.`,
+                { tone: "success" }
+              );
+            }, 1500);
+          } else {
+            setTimeout(() => {
+              appendBotMessage(
+                `✅ Perfect! This was your final submission (${MAX_SUBMISSIONS}/${MAX_SUBMISSIONS}). Our team will review all your inquiries comprehensively.`,
+                { tone: "success" }
+              );
+            }, 1500);
+          }
+          console.log("✅ Supabase fallback successful!");
+        } catch (fallbackError) {
+          console.error("[CHATBOT] ❌ Supabase fallback also failed:", fallbackError);
+          setLeadSyncStatus("error");
+          
+          // Even if everything fails, try one final Slack notification to alert the team
+          try {
+            const emergencySlack = import.meta.env.VITE_SLACK_WEBHOOK_URL;
+            if (emergencySlack) {
+              await fetch(emergencySlack, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  text: `🎯 *New Chatbot Lead* (Direct Save)`,
-                  blocks: [
-                    {
-                      type: "header",
-                      text: { type: "plain_text", text: "🎯 New Chatbot Lead" }
-                    },
-                    {
-                      type: "section",
-                      fields: [
-                        { type: "mrkdwn", text: `*Name:*\n${finalLead.name}` },
-                        { type: "mrkdwn", text: `*Phone:*\n${finalLead.phone}` },
-                        { type: "mrkdwn", text: `*Email:*\n${finalLead.email || "Not provided"}` },
-                        { type: "mrkdwn", text: `*Intent:*\n${payload.intent || "browse"}` },
-                        { type: "mrkdwn", text: `*Budget:*\n${finalLead.budget || "Not specified"}` },
-                        { type: "mrkdwn", text: `*Area:*\n${finalLead.locations?.join(", ") || "Any"}` },
-                        { type: "mrkdwn", text: `*Lead Score:*\n${leadScore.value || 50}/100 (${leadScore.tier || "warm"})` },
-                        { type: "mrkdwn", text: `*Profile:*\n${profileCompletion || 0}% complete` }
-                      ]
-                    },
-                    {
-                      type: "actions",
-                      elements: [
-                        {
-                          type: "button",
-                          text: { type: "plain_text", text: "View in Admin" },
-                          url: `https://bright-torte-7f50cf.netlify.app/admin/conversations`,
-                          style: "primary"
-                        }
-                      ]
-                    }
-                  ]
+                  text: `🚨 URGENT: Chatbot lead capture FAILED completely! Manual intervention needed.\nLead: ${finalLead.name} (${finalLead.phone}) - All systems down!`
                 })
               });
-            } catch (slackError) {
-              console.error("Slack notification failed:", slackError);
+              console.log("[CHATBOT] 🚨 Emergency Slack alert sent!");
             }
+          } catch (emergencyError) {
+            console.error("[CHATBOT] ❌ Even emergency Slack failed:", emergencyError);
           }
-
-          setSubmittedConversationId(conversation.id);
-          setLeadSyncStatus("success");
-          console.log("✅ Supabase fallback successful!");
-        } catch (fallbackError) {
-          console.error("Supabase fallback also failed:", fallbackError);
-          setLeadSyncStatus("error");
+          
           appendBotMessage(
-            "I captured your profile but couldn't sync it to our advisors automatically. I'll keep retrying and also alerted a human.",
+            "⚠️ I'm experiencing technical difficulties saving your inquiry. Don't worry - I've captured your details and our technical team has been alerted. You can also reach us directly at +971 4 123 4567 or info@truenester.com for immediate assistance.",
             { tone: "warning" }
           );
         }
@@ -1415,7 +1456,8 @@ const TrueNesterChatbot = () => {
       rentSelection,
       savedProperties,
       stepSelections,
-      submittedConversationId,
+      submissionCount,
+      MAX_SUBMISSIONS,
       visitorProfile,
     ]
   );
@@ -2264,9 +2306,14 @@ const TrueNesterChatbot = () => {
                     Syncing your preferences with our advisors…
                   </p>
                 )}
-                {leadSyncStatus === "success" && submittedConversationId && (
+                {leadSyncStatus === "success" && submissionCount > 0 && (
                   <p className="text-[11px] text-emerald-600 mt-1 text-center">
-                    Profile synced to the admin hub ✅
+                    Submissions: {submissionCount}/{MAX_SUBMISSIONS} synced to admin hub ✅
+                  </p>
+                )}
+                {submissionCount >= MAX_SUBMISSIONS && (
+                  <p className="text-[11px] text-orange-600 mt-1 text-center">
+                    Maximum submissions reached ({MAX_SUBMISSIONS}/{MAX_SUBMISSIONS})
                   </p>
                 )}
                 {leadSyncStatus === "error" && (

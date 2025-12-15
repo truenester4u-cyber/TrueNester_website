@@ -4,16 +4,22 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ToastAction } from "@/components/ui/toast";
 import { Bed, Bath, Square, MapPin, Phone, Mail, Share2, Heart, X, ChevronLeft, ChevronRight } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import type React from "react";
 import { useState, useEffect, useRef, TouchEvent } from "react";
 import TrueNesterLogo from "@/assets/TrueNester_logo.png";
 import "@/components/admin/RichTextEditorStyles.css";
 import { parsePropertyTypes } from "@/lib/utils";
 import { getAmenityIcon, getAmenityColor } from "@/lib/amenityIcons";
+import { fetchPropertyById, insertConversation } from "@/lib/supabase-queries";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext.v2";
+import { useToast } from "@/hooks/use-toast";
+import { useIsPropertySaved, useToggleSaveProperty } from "@/hooks/useSavedProperties";
+import { useCreateInquiry } from "@/hooks/useCustomerInquiries";
 
 const countryCodes = [
   { label: "+971", country: "UAE", flag: "🇦🇪" },
@@ -56,6 +62,17 @@ type PaymentPlanRow = {
 
 const PropertyDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
+  const { toast } = useToast();
+  
+  // Database-backed favorites
+  const { data: isFavorite = false } = useIsPropertySaved(id || '');
+  const { toggleSave, isLoading: savingProperty } = useToggleSaveProperty();
+  
+  // Customer inquiries
+  const createInquiry = useCreateInquiry();
+  
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [zoom, setZoom] = useState(1);
@@ -64,7 +81,6 @@ const PropertyDetail = () => {
   const [selectedFloorPlan, setSelectedFloorPlan] = useState(0);
   const [floorPlanLightboxOpen, setFloorPlanLightboxOpen] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [formError, setFormError] = useState("");
@@ -86,6 +102,11 @@ const PropertyDetail = () => {
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [touchEndY, setTouchEndY] = useState<number | null>(null);
   const minSwipeDistance = 80; // Increased from 50 for better accuracy
+  const lastTapRef = useRef<number>(0);
+  const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const initialDistanceRef = useRef<number>(0);
+  const initialZoomRef = useRef<number>(1);
+  const pinchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const overviewSectionRef = useRef<HTMLDivElement | null>(null);
   const detailsSectionRef = useRef<HTMLDivElement | null>(null);
@@ -159,6 +180,72 @@ const PropertyDetail = () => {
   const resetZoom = () => setZoom(1);
   const resetFloorPlanZoom = () => setFloorPlanZoom(1);
 
+  // Handle double tap zoom for lightbox images on mobile
+  const handleImageDoubleTap = () => {
+    const now = Date.now();
+    const isDoubleTap = now - lastTapRef.current < 300;
+    lastTapRef.current = now;
+
+    if (isDoubleTap) {
+      if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
+      // Toggle between zoom in (2.5x) and zoom out (1x)
+      setZoom((prev) => (prev === 1 ? 2.5 : 1));
+    } else {
+      if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
+      tapTimeoutRef.current = setTimeout(() => {
+        // Single tap - do nothing, but this prevents browser default
+      }, 300);
+    }
+  };
+
+  // Handle pinch zoom for lightbox images on mobile
+  const handleLightboxTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2) {
+      // Two-finger pinch detected
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const distance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      );
+      initialDistanceRef.current = distance;
+      initialZoomRef.current = zoom;
+      pinchStartRef.current = {
+        x: (touch1.clientX + touch2.clientX) / 2,
+        y: (touch1.clientY + touch2.clientY) / 2,
+      };
+    } else if (e.touches.length === 1) {
+      setTouchStart(e.touches[0].clientX);
+      setTouchStartY(e.touches[0].clientY);
+    }
+  };
+
+  const handleLightboxTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2 && initialDistanceRef.current > 0) {
+      // Pinch zoom in progress
+      e.preventDefault();
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const distance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      );
+      const scale = distance / initialDistanceRef.current;
+      const newZoom = Math.min(Math.max(initialZoomRef.current * scale, 1), 4);
+      setZoom(newZoom);
+    } else if (e.touches.length === 1) {
+      setTouchEnd(e.touches[0].clientX);
+      setTouchEndY(e.touches[0].clientY);
+    }
+  };
+
+  const handleLightboxTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 0) {
+      initialDistanceRef.current = 0;
+      pinchStartRef.current = null;
+    }
+  };
+
   const openFloorPlanLightbox = (index: number) => {
     setSelectedFloorPlan(index);
     setFloorPlanLightboxOpen(true);
@@ -184,17 +271,10 @@ const PropertyDetail = () => {
   const { data: property, isLoading, isError } = useQuery({
     queryKey: ["property", id],
     enabled: !!id,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("properties").select("*").eq("id", id).single();
-      if (error) throw error;
-      const propertyData = data as any;
-      console.log('🏠 FRONTEND: Property data loaded:', propertyData);
-      console.log('🏠 FRONTEND: Floor plans from DB:', propertyData?.floor_plans);
-      console.log('🏠 FRONTEND: Floor plans type:', typeof propertyData?.floor_plans);
-      console.log('🏠 FRONTEND: Floor plans is array?', Array.isArray(propertyData?.floor_plans));
-      console.log('🏠 FRONTEND: Floor plans length:', propertyData?.floor_plans?.length);
-      return propertyData;
-    },
+    queryFn: () => fetchPropertyById(id || ""),
+    staleTime: 15 * 60 * 1000, // 15 minutes - property details don't change often
+    gcTime: 20 * 60 * 1000, // 20 minutes
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
   });
 
   const images: string[] = (property?.images as string[]) ?? [];
@@ -369,31 +449,32 @@ const PropertyDetail = () => {
                     {/* Mobile Swipeable Gallery */}
                     <div className="block lg:hidden">
                       <div 
-                        className="relative h-[250px] overflow-hidden rounded-xl bg-gray-100"
+                        className="relative w-full overflow-hidden rounded-xl"
+                        style={{ aspectRatio: '4/3' }}
                         onTouchStart={onTouchStart}
                         onTouchMove={onTouchMove}
                         onTouchEnd={() => onTouchEnd(images)}
                       >
                         {/* Swipeable Image */}
                         <div 
-                          className="flex transition-transform duration-300 ease-out h-full"
+                          className="flex transition-transform duration-300 ease-out h-full w-full"
                           style={{ transform: `translateX(-${mobileImageIndex * 100}%)` }}
                         >
                           {images.length > 0 ? images.map((img, idx) => (
-                            <div key={idx} className="min-w-full h-full relative flex-shrink-0 flex items-center justify-center">
+                            <div key={idx} className="min-w-full h-full relative flex-shrink-0">
                               <img 
                                 src={img || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop"} 
                                 alt={`${property.title} - ${idx + 1}`}
-                                className="w-full h-full object-contain"
+                                className="w-full h-full object-cover"
                                 onClick={() => openLightbox(idx)}
                               />
                             </div>
                           )) : (
-                            <div className="min-w-full h-full relative flex-shrink-0 flex items-center justify-center">
+                            <div className="min-w-full h-full relative flex-shrink-0">
                               <img 
                                 src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop"
                                 alt={property.title}
-                                className="w-full h-full object-contain"
+                                className="w-full h-full object-cover"
                                 onClick={() => openLightbox(0)}
                               />
                             </div>
@@ -478,9 +559,24 @@ const PropertyDetail = () => {
                           </Button>
                           <Button 
                             size="icon"
-                            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                            onClick={async (e: React.MouseEvent<HTMLButtonElement>) => {
                               e.stopPropagation();
-                              setIsFavorite(!isFavorite);
+                              
+                              // Check authentication
+                              if (!isAuthenticated) {
+                                toast({
+                                  title: "Login Required",
+                                  description: "Make sure you are logged in",
+                                  action: <ToastAction altText="Login" onClick={() => navigate("/login")}>Login</ToastAction>,
+                                });
+                                return;
+                              }
+                              
+                              await toggleSave(id!, isFavorite, {
+                                title: property?.title,
+                                image: property?.featured_image,
+                                price: property?.price?.toString(),
+                              });
                             }}
                             className={`h-9 w-9 rounded-full border-0 ${
                               isFavorite 
@@ -657,9 +753,24 @@ const PropertyDetail = () => {
                         {/* Favorite Button */}
                         <Button 
                           size="icon"
-                          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                          onClick={async (e: React.MouseEvent<HTMLButtonElement>) => {
                             e.stopPropagation();
-                            setIsFavorite(!isFavorite);
+                            
+                            // Check authentication
+                            if (!isAuthenticated) {
+                              toast({
+                                title: "Login Required",
+                                description: "Make sure you are logged in",
+                                action: <ToastAction altText="Login" onClick={() => navigate("/login")}>Login</ToastAction>,
+                              });
+                              return;
+                            }
+                            
+                            await toggleSave(id!, isFavorite, {
+                              title: property?.title,
+                              image: property?.featured_image,
+                              price: property?.price?.toString(),
+                            });
                           }}
                           className={`h-12 w-12 rounded-full shadow-lg transition-all duration-300 hover:scale-110 ${
                             isFavorite 
@@ -1225,34 +1336,16 @@ const PropertyDetail = () => {
                             setFormError('');
                             
                             try {
-                              // Generate a proper UUID for customer_id
-                              const generateUUID = () => {
-                                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                                  const r = Math.random() * 16 | 0;
-                                  const v = c === 'x' ? r : (r & 0x3 | 0x8);
-                                  return v.toString(16);
-                                });
-                              };
-                              
-                              // Save inquiry to Supabase conversations table (visible in Admin Panel)
-                              const { error: dbError } = await supabase
-                                .from('conversations')
-                                .insert({
-                                  customer_id: generateUUID(),
+                              // Save inquiry to customer_inquiries table for dashboard
+                              if (isAuthenticated) {
+                                await createInquiry.mutateAsync({
+                                  property_code: property?.property_code || null,
+                                  inquiry_type: 'information',
+                                  message: formData.message || `Interested in property: ${property?.title}`,
                                   customer_name: formData.name,
                                   customer_email: formData.email,
-                                  customer_phone: formData.phone,
-                                  start_time: new Date().toISOString(),
-                                  status: 'new',
-                                  intent: 'property_inquiry',
-                                  notes: `Property: ${property.title}\nURL: ${window.location.href}\nMessage: ${formData.message || 'No message provided'}`,
-                                  preferred_area: property.area || property.location || null,
-                                  property_type: property.property_type || null
+                                  customer_phone: `${formData.countryCode} ${formData.phone}`.trim(),
                                 });
-                              
-                              if (dbError) {
-                                console.error('DB Error:', dbError);
-                                throw new Error('Failed to save inquiry');
                               }
                               
                               // Send to Slack webhook for property inquiry
@@ -1434,25 +1527,9 @@ const PropertyDetail = () => {
           <div 
             className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4" 
             onWheel={handleWheelZoom}
-            onTouchStart={(e) => {
-              const touch = e.touches[0];
-              setTouchStart(touch.clientX);
-            }}
-            onTouchEnd={(e) => {
-              const touch = e.changedTouches[0];
-              setTouchEnd(touch.clientX);
-              if (!touchStart || !touch.clientX) return;
-              const distance = touchStart - touch.clientX;
-              const minDistance = 50;
-              
-              if (Math.abs(distance) > minDistance) {
-                if (distance > 0 && currentImageIndex < images.length - 1) {
-                  nextImage();
-                } else if (distance < 0 && currentImageIndex > 0) {
-                  prevImage();
-                }
-              }
-            }}
+            onTouchStart={handleLightboxTouchStart}
+            onTouchMove={handleLightboxTouchMove}
+            onTouchEnd={handleLightboxTouchEnd}
           >
             {/* Close Button */}
             <button
@@ -1487,13 +1564,31 @@ const PropertyDetail = () => {
             </button>
 
             {/* Current Image with Zoom & Watermark */}
-            <div className="w-full h-full flex items-center justify-center select-none" onDoubleClick={resetZoom}>
+            <div 
+              className="w-full h-full flex items-center justify-center select-none" 
+              onDoubleClick={resetZoom}
+              onClick={(e) => {
+                // Handle swipe navigation in lightbox
+                if (touchStart !== null && touchEnd !== null && initialDistanceRef.current === 0) {
+                  const distance = touchStart - touchEnd;
+                  const minDistance = 80;
+                  
+                  if (Math.abs(distance) > minDistance) {
+                    if (distance > 0 && currentImageIndex < images.length - 1) {
+                      nextImage();
+                    } else if (distance < 0 && currentImageIndex > 0) {
+                      prevImage();
+                    }
+                  }
+                }
+              }}
+            >
               <div className="relative flex items-center justify-center max-h-full max-w-full">
                 <img
                   src={images[currentImageIndex] || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop"}
                   alt={`${property?.title || "Property"} - Image ${currentImageIndex + 1}`}
-                  style={{ transform: `scale(${zoom})`, transition: 'transform 0.15s ease-out' }}
-                  className="max-w-[95vw] sm:max-w-[90vw] max-h-[85vh] sm:max-h-[80vh] object-contain rounded-lg"
+                  style={{ transform: `scale(${zoom})`, transition: initialDistanceRef.current === 0 ? 'transform 0.15s ease-out' : 'none' }}
+                  className="max-w-[95vw] sm:max-w-[90vw] max-h-[85vh] sm:max-h-[80vh] object-contain rounded-lg touch-none user-select-none"
                   draggable={false}
                 />
                 <img
@@ -1503,16 +1598,16 @@ const PropertyDetail = () => {
                   draggable={false}
                 />
                 {zoom > 1 && (
-                  <div className="absolute bottom-2 left-2 text-[10px] sm:text-xs bg-black/60 text-white px-2 py-1 rounded-md font-semibold">
-                    Zoom: {Math.round(zoom * 100)}%
+                  <div className="absolute bottom-4 left-2 sm:bottom-6 sm:left-4 text-[11px] sm:text-sm bg-black/70 text-white px-3 py-1.5 rounded-md font-semibold">
+                    🔍 Zoom: {Math.round(zoom * 100)}%
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Mobile Hint for Swipe */}
-            <div className="absolute bottom-2 sm:hidden text-white text-xs text-center bg-black/40 px-3 py-1 rounded-full">
-              Swipe to navigate • Double tap to zoom
+            {/* Mobile Hint for Swipe & Pinch */}
+            <div className="absolute bottom-2 sm:hidden text-white text-xs text-center bg-black/50 px-3 py-2 rounded-full max-w-xs">
+              {zoom === 1 ? "Pinch to zoom · Double tap · Swipe to navigate" : "Pinch to zoom out · Swipe to navigate"}
             </div>
           </div>
         )}

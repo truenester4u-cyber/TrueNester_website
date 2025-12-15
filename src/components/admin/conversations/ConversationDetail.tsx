@@ -18,7 +18,7 @@ import { ConversationSummary } from "./ConversationSummary";
 import { ChatHistory } from "./ChatHistory";
 import { AgentAssignmentDrawer } from "./AgentAssignmentDrawer";
 import { cn } from "@/lib/utils";
-import { Mail, Phone, MapPin, Tag, Clock, UserRound } from "lucide-react";
+import { Mail, Phone, MapPin, Tag, Clock, UserRound, Image as ImageIcon, ExternalLink } from "lucide-react";
 
 interface ConversationDetailProps {
   conversation?: Conversation;
@@ -53,6 +53,15 @@ export const ConversationDetail = ({
 
   useEffect(() => {
     setNotesDraft(conversation?.notes ?? "");
+  }, [conversation]);
+
+  // Extract property images from lead_score_breakdown if available
+  const propertyImages = useMemo(() => {
+    if (conversation?.leadScoreBreakdown && typeof conversation.leadScoreBreakdown === 'object') {
+      const breakdown = conversation.leadScoreBreakdown as any;
+      return (breakdown.images || []) as string[];
+    }
+    return [];
   }, [conversation]);
 
   const stats = useMemo(
@@ -141,6 +150,35 @@ export const ConversationDetail = ({
             </Button>
           </TabsContent>
         </Tabs>
+
+        {propertyImages.length > 0 && (
+          <Card className="p-4 rounded-3xl">
+            <div className="flex items-center gap-2 mb-3">
+              <ImageIcon className="h-4 w-4 text-slate-600" />
+              <p className="text-sm font-semibold text-slate-700">Property Images ({propertyImages.length})</p>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {propertyImages.map((url, index) => (
+                <a 
+                  key={index} 
+                  href={url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="group relative aspect-square overflow-hidden rounded-lg border border-slate-200 hover:border-primary transition-colors"
+                >
+                  <img 
+                    src={url} 
+                    alt={`Property ${index + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center">
+                    <ExternalLink className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </a>
+              ))}
+            </div>
+          </Card>
+        )}
 
         <div className="space-y-4">
           <ConversationSummary conversation={conversation} summary={summary} onRegenerate={onRegenerateSummary} />

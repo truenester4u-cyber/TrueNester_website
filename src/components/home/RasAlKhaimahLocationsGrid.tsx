@@ -3,16 +3,16 @@ import { Link } from "react-router-dom";
 import { MapPin } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
+import { getSafeImageUrl, handleImageError } from "@/lib/imageUtils";
 import downtownImg from "@/assets/location-downtown.jpg";
 
 interface Location {
   id: string;
   name: string;
   slug: string;
-  image_url: string;
-  properties_count: number;
-  price_range: string;
-  published: boolean;
+  image_url: string | null;
+  property_count: number;
+  featured: boolean;
   city?: string;
 }
 
@@ -26,22 +26,25 @@ const RasAlKhaimahLocationsGrid = () => {
 
   const fetchLocations = async () => {
     try {
-      const { data, error } = await supabase
-        .from("locations")
-        .select("id, name, slug, image_url, properties_count, price_range, published, city")
-        .eq("published", true)
-        .eq("city", "Ras Al Khaimah")
-        .order("created_at", { ascending: false })
-        .limit(4);
+      // Simple query - just get all data
+      const { data, error } = await supabase.from("locations").select();
 
       if (error) {
-        console.error("Error fetching Ras Al Khaimah locations:", error);
+        console.error("Error fetching Ras Al Khaimah locations:", error.message);
+        setLocations([]);
         return;
       }
 
-      setLocations(data || []);
+      // Filter for Ras Al Khaimah and limit to 4
+      const filtered = (data || [])
+        .filter((loc: any) => loc.city === "Ras Al Khaimah")
+        .slice(0, 4);
+
+      console.log("Ras Al Khaimah locations loaded:", { total: data?.length, rak: filtered.length });
+      setLocations(filtered);
     } catch (error) {
       console.error("Error fetching Ras Al Khaimah locations:", error);
+      setLocations([]);
     } finally {
       setLoading(false);
     }
@@ -76,12 +79,11 @@ const RasAlKhaimahLocationsGrid = () => {
               <Link to="/locations">
                 <div className="relative h-48 overflow-hidden">
                   <img
-                    src={location.image_url || downtownImg}
+                     src={getSafeImageUrl(location.image_url, downtownImg)}
                     alt={location.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = downtownImg;
-                    }}
+                    onError={(e) => handleImageError(e, downtownImg)}
+                    loading="lazy"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
                   <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
@@ -89,13 +91,11 @@ const RasAlKhaimahLocationsGrid = () => {
                       <MapPin className="h-4 w-4" />
                       {location.name}
                     </h3>
-                    <p className="text-sm text-white/80">{location.properties_count} Properties</p>
+                     <p className="text-sm text-white/80">{location.property_count} Properties</p>
                   </div>
                 </div>
                 <CardContent className="p-4">
-                  <p className="text-sm text-muted-foreground text-center">
-                    {location.price_range}
-                  </p>
+                  <p className="text-sm text-muted-foreground text-center">&nbsp;</p>
                 </CardContent>
               </Link>
             </Card>

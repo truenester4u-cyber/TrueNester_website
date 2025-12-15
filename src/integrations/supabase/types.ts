@@ -7,601 +7,862 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
-      agents: {
+      properties: {
         Row: {
-          created_at: string
-          department: string | null
-          email: string
           id: string
-          max_capacity: number | null
-          name: string
-          phone: string | null
-          photo_url: string | null
-          status: string | null
+          title: string
+          description: string
+          property_type: string
+          purpose: string
+          price: number
+          location: string
+          city: string | null
+          bedrooms: number | null
+          bathrooms: number | null
+          size: number | null
+          images: string[]
+          featured_image: string | null
+          amenities: string[]
+          features: string[]
+          developer: string | null
+          completion_date: string | null
+          payment_plan: Json | null
+          floor_plans: string[] | null
+          virtual_tour_url: string | null
+          video_url: string | null
+          published: boolean
+          featured: boolean
+          views: number
+          created_at: string
           updated_at: string
+          price_display: string | null
+          payment_terms: string | null
+          handover_date: string | null
         }
         Insert: {
-          created_at?: string
-          department?: string | null
-          email: string
           id?: string
-          max_capacity?: number | null
-          name: string
-          phone?: string | null
-          photo_url?: string | null
-          status?: string | null
+          title: string
+          description?: string
+          property_type: string
+          purpose?: string
+          price: number
+          location: string
+          city?: string | null
+          bedrooms?: number | null
+          bathrooms?: number | null
+          size?: number | null
+          images?: string[]
+          featured_image?: string | null
+          amenities?: string[]
+          features?: string[]
+          developer?: string | null
+          completion_date?: string | null
+          payment_plan?: Json | null
+          floor_plans?: string[] | null
+          virtual_tour_url?: string | null
+          video_url?: string | null
+          published?: boolean
+          featured?: boolean
+          views?: number
+          created_at?: string
           updated_at?: string
+          price_display?: string | null
+          payment_terms?: string | null
+          handover_date?: string | null
         }
         Update: {
-          created_at?: string
-          department?: string | null
-          email?: string
           id?: string
-          max_capacity?: number | null
-          name?: string
-          phone?: string | null
-          photo_url?: string | null
-          status?: string | null
+          title?: string
+          description?: string
+          property_type?: string
+          purpose?: string
+          price?: number
+          location?: string
+          city?: string | null
+          bedrooms?: number | null
+          bathrooms?: number | null
+          size?: number | null
+          images?: string[]
+          featured_image?: string | null
+          amenities?: string[]
+          features?: string[]
+          developer?: string | null
+          completion_date?: string | null
+          payment_plan?: Json | null
+          floor_plans?: string[] | null
+          virtual_tour_url?: string | null
+          video_url?: string | null
+          published?: boolean
+          featured?: boolean
+          views?: number
+          created_at?: string
           updated_at?: string
+          price_display?: string | null
+          payment_terms?: string | null
+          handover_date?: string | null
         }
         Relationships: []
       }
-      blog_posts: {
+      locations: {
         Row: {
-          author_id: string | null
-          author_name: string
-          category: string
-          content: string
-          created_at: string
-          excerpt: string
           id: string
-          featured_image: string | null
-          published: boolean
+          name: string
           slug: string
-          title: string
+          city: string | null
+          description: string | null
+          image: string | null
+          property_count: number
+          featured: boolean
+          created_at: string
           updated_at: string
+          featured_city: boolean | null
         }
         Insert: {
-          author_id?: string | null
-          author_name: string
-          category: string
-          content: string
-          created_at?: string
-          excerpt: string
           id?: string
-          featured_image?: string | null
-          published?: boolean
+          name: string
           slug: string
-          title: string
+          city?: string | null
+          description?: string | null
+          image?: string | null
+          property_count?: number
+          featured?: boolean
+          created_at?: string
           updated_at?: string
+          featured_city?: boolean | null
         }
         Update: {
-          author_id?: string | null
-          author_name?: string
-          category?: string
-          content?: string
-          created_at?: string
-          excerpt?: string
           id?: string
-          featured_image?: string | null
-          published?: boolean
+          name?: string
           slug?: string
-          title?: string
+          city?: string | null
+          description?: string | null
+          image?: string | null
+          property_count?: number
+          featured?: boolean
+          created_at?: string
           updated_at?: string
+          featured_city?: boolean | null
+        }
+        Relationships: []
+      }
+      conversations: {
+        Row: {
+          id: string
+          customer_id: string
+          customer_name: string
+          customer_email: string | null
+          customer_phone: string | null
+          start_time: string
+          end_time: string | null
+          duration_minutes: number
+          status: string
+          lead_score: number
+          lead_quality: string | null
+          intent: string | null
+          budget: string | null
+          preferred_area: string | null
+          tags: string[]
+          notes: string | null
+          follow_up_date: string | null
+          assigned_agent_id: string | null
+          created_at: string
+          updated_at: string
+          lead_score_breakdown: Json | null
+        }
+        Insert: {
+          id?: string
+          customer_id: string
+          customer_name: string
+          customer_email?: string | null
+          customer_phone?: string | null
+          start_time?: string
+          end_time?: string | null
+          duration_minutes?: number
+          status?: string
+          lead_score?: number
+          lead_quality?: string | null
+          intent?: string | null
+          budget?: string | null
+          preferred_area?: string | null
+          tags?: string[]
+          notes?: string | null
+          follow_up_date?: string | null
+          assigned_agent_id?: string | null
+          created_at?: string
+          updated_at?: string
+          lead_score_breakdown?: Json | null
+        }
+        Update: {
+          id?: string
+          customer_id?: string
+          customer_name?: string
+          customer_email?: string | null
+          customer_phone?: string | null
+          start_time?: string
+          end_time?: string | null
+          duration_minutes?: number
+          status?: string
+          lead_score?: number
+          lead_quality?: string | null
+          intent?: string | null
+          budget?: string | null
+          preferred_area?: string | null
+          tags?: string[]
+          notes?: string | null
+          follow_up_date?: string | null
+          assigned_agent_id?: string | null
+          created_at?: string
+          updated_at?: string
+          lead_score_breakdown?: Json | null
         }
         Relationships: []
       }
       chat_messages: {
         Row: {
-          conversation_id: string
-          created_at: string
           id: string
-          is_read: boolean | null
-          message_text: string
-          message_type: string | null
-          metadata: Json | null
+          conversation_id: string
           sender: string
+          message_text: string
+          message_type: string
           timestamp: string
-          updated_at: string
+          is_read: boolean
+          metadata: Json | null
+          created_at: string
         }
         Insert: {
-          conversation_id: string
-          created_at?: string
           id?: string
-          is_read?: boolean | null
-          message_text: string
-          message_type?: string | null
-          metadata?: Json | null
+          conversation_id: string
           sender: string
-          timestamp: string
-          updated_at?: string
+          message_text: string
+          message_type?: string
+          timestamp?: string
+          is_read?: boolean
+          metadata?: Json | null
+          created_at?: string
         }
         Update: {
-          conversation_id?: string
-          created_at?: string
           id?: string
-          is_read?: boolean | null
-          message_text?: string
-          message_type?: string | null
-          metadata?: Json | null
+          conversation_id?: string
           sender?: string
+          message_text?: string
+          message_type?: string
           timestamp?: string
-          updated_at?: string
+          is_read?: boolean
+          metadata?: Json | null
+          created_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "chat_messages_conversation_id_fkey"
             columns: ["conversation_id"]
+            isOneToOne: false
             referencedRelation: "conversations"
             referencedColumns: ["id"]
           }
         ]
       }
-      conversation_summaries: {
+      profiles: {
         Row: {
-          actions_taken: string[] | null
-          budget: string | null
-          conversation_id: string
-          created_at: string
-          customer_intent: string | null
-          duration_minutes: number | null
-          generated_at: string
           id: string
-          lead_score_breakdown: Json | null
-          missing_steps: string[] | null
-          preferred_area: string | null
-          property_type: string | null
-          suggested_follow_up: string | null
-          summary_text: string | null
-          total_messages: number | null
+          email: string
+          full_name: string | null
+          avatar_url: string | null
+          phone: string | null
+          role: string
+          created_at: string
           updated_at: string
         }
         Insert: {
-          actions_taken?: string[] | null
-          budget?: string | null
-          conversation_id: string
-          created_at?: string
-          customer_intent?: string | null
-          duration_minutes?: number | null
-          generated_at?: string
-          id?: string
-          lead_score_breakdown?: Json | null
-          missing_steps?: string[] | null
-          preferred_area?: string | null
-          property_type?: string | null
-          suggested_follow_up?: string | null
-          summary_text?: string | null
-          total_messages?: number | null
-          updated_at?: string
-        }
-        Update: {
-          actions_taken?: string[] | null
-          budget?: string | null
-          conversation_id?: string
-          created_at?: string
-          customer_intent?: string | null
-          duration_minutes?: number | null
-          generated_at?: string
-          id?: string
-          lead_score_breakdown?: Json | null
-          missing_steps?: string[] | null
-          preferred_area?: string | null
-          property_type?: string | null
-          suggested_follow_up?: string | null
-          summary_text?: string | null
-          total_messages?: number | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "conversation_summaries_conversation_id_fkey"
-            columns: ["conversation_id"]
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      conversations: {
-        Row: {
-          assigned_agent_id: string | null
-          budget: string | null
-          conversation_summary: string | null
-          conversion_value: number | null
-          created_at: string
-          customer_email: string | null
-          customer_id: string
-          customer_name: string
-          customer_phone: string | null
-          duration_minutes: number | null
-          end_time: string | null
-          follow_up_date: string | null
           id: string
-          intent: string | null
-          lead_quality: string | null
-          lead_score: number | null
-          lead_score_breakdown: Json | null
-          notes: string | null
-          outcome: string | null
-          preferred_area: string | null
-          property_type: string | null
-          start_time: string
-          status: string
-          tags: string[] | null
-          updated_at: string
-        }
-        Insert: {
-          assigned_agent_id?: string | null
-          budget?: string | null
-          conversation_summary?: string | null
-          conversion_value?: number | null
+          email: string
+          full_name?: string | null
+          avatar_url?: string | null
+          phone?: string | null
+          role?: string
           created_at?: string
-          customer_email?: string | null
-          customer_id: string
-          customer_name: string
-          customer_phone?: string | null
-          duration_minutes?: number | null
-          end_time?: string | null
-          follow_up_date?: string | null
-          id?: string
-          intent?: string | null
-          lead_quality?: string | null
-          lead_score?: number | null
-          lead_score_breakdown?: Json | null
-          notes?: string | null
-          outcome?: string | null
-          preferred_area?: string | null
-          property_type?: string | null
-          start_time: string
-          status: string
-          tags?: string[] | null
           updated_at?: string
         }
         Update: {
-          assigned_agent_id?: string | null
-          budget?: string | null
-          conversation_summary?: string | null
-          conversion_value?: number | null
-          created_at?: string
-          customer_email?: string | null
-          customer_id?: string
-          customer_name?: string
-          customer_phone?: string | null
-          duration_minutes?: number | null
-          end_time?: string | null
-          follow_up_date?: string | null
           id?: string
-          intent?: string | null
-          lead_quality?: string | null
-          lead_score?: number | null
-          lead_score_breakdown?: Json | null
-          notes?: string | null
-          outcome?: string | null
-          preferred_area?: string | null
-          property_type?: string | null
-          start_time?: string
-          status?: string
-          tags?: string[] | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "conversations_assigned_agent_id_fkey"
-            columns: ["assigned_agent_id"]
-            referencedRelation: "agents"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      locations: {
-        Row: {
-          city: string | null
-          created_at: string
-          description: string | null
-          features: string[] | null
-          id: string
-          image_url: string | null
-          name: string
-          price_range: string | null
-          properties_count: number | null
-          published: boolean
-          slug: string
-          updated_at: string
-        }
-        Insert: {
-          city?: string | null
+          email?: string
+          full_name?: string | null
+          avatar_url?: string | null
+          phone?: string | null
+          role?: string
           created_at?: string
-          description?: string | null
-          features?: string[] | null
-          id?: string
-          image_url?: string | null
-          name: string
-          price_range?: string | null
-          properties_count?: number | null
-          published?: boolean
-          slug: string
-          updated_at?: string
-        }
-        Update: {
-          city?: string | null
-          created_at?: string
-          description?: string | null
-          features?: string[] | null
-          id?: string
-          image_url?: string | null
-          name?: string
-          price_range?: string | null
-          properties_count?: number | null
-          published?: boolean
-          slug?: string
           updated_at?: string
         }
         Relationships: []
       }
-      properties: {
+      saved_properties: {
         Row: {
-          agent_email: string | null
-          agent_name: string | null
-          agent_phone: string | null
-          amenities: Json
-          area: string | null
-          bathrooms: number | null
-          bedrooms: number | null
-          city: string
-          completion_date: string | null
-          completion_status: string | null
-          created_at: string
-          description: string
-          developer: string | null
-          features: Json
-          featured: boolean
-          featured_abu_dhabi: boolean
-          featured_image: string | null
-          featured_dubai: boolean
-          featured_ras_al_khaimah: boolean
-          floor_number: number | null
-          furnished: string | null
           id: string
-          images: Json
-          location: string
-          meta_description: string | null
-          meta_title: string | null
-          parking_spaces: number | null
-          price: number | null
-          price_display: string | null
-          property_type: string
-          published: boolean
-          purpose: string
-          size_sqft: number | null
-          size_sqm: number | null
-          slug: string
-          title: string
-          building_description: string | null
-          plot_area: string | null
-          unit_types: Json
-          updated_at: string
-          views: number
+          user_id: string
+          property_id: string
+          created_at: string
         }
         Insert: {
-          agent_email?: string | null
-          agent_name?: string | null
-          agent_phone?: string | null
-          amenities?: Json
-          area?: string | null
-          bathrooms?: number | null
-          bedrooms?: number | null
-          city: string
-          completion_date?: string | null
-          completion_status?: string | null
-          created_at?: string
-          description: string
-          developer?: string | null
-          features?: Json
-          featured?: boolean
-          featured_abu_dhabi?: boolean
-          featured_image?: string | null
-          featured_dubai?: boolean
-          featured_ras_al_khaimah?: boolean
-          floor_number?: number | null
-          furnished?: string | null
           id?: string
-          images?: Json
-          location: string
-          meta_description?: string | null
-          meta_title?: string | null
-          parking_spaces?: number | null
-          price?: number | null
-          price_display?: string | null
-          property_type: string
-          published?: boolean
-          purpose: string
-          size_sqft?: number | null
-          size_sqm?: number | null
-          slug: string
-          title: string
-          building_description?: string | null
-          plot_area?: string | null
-          unit_types?: Json
-          updated_at?: string
-          views?: number
+          user_id: string
+          property_id: string
+          created_at?: string
         }
         Update: {
-          agent_email?: string | null
-          agent_name?: string | null
-          agent_phone?: string | null
-          amenities?: Json
-          area?: string | null
-          bathrooms?: number | null
-          bedrooms?: number | null
-          city?: string
-          completion_date?: string | null
-          completion_status?: string | null
-          created_at?: string
-          description?: string
-          developer?: string | null
-          features?: Json
-          featured?: boolean
-          featured_abu_dhabi?: boolean
-          featured_image?: string | null
-          featured_dubai?: boolean
-          featured_ras_al_khaimah?: boolean
-          floor_number?: number | null
-          furnished?: string | null
           id?: string
-          images?: Json
-          location?: string
-          meta_description?: string | null
-          meta_title?: string | null
-          parking_spaces?: number | null
-          price?: number | null
-          price_display?: string | null
-          property_type?: string
-          published?: boolean
-          purpose?: string
-          size_sqft?: number | null
-          size_sqm?: number | null
-          slug?: string
-          title?: string
-          building_description?: string | null
-          plot_area?: string | null
-          unit_types?: Json
-          updated_at?: string
-          views?: number
-        }
-        Relationships: []
-      }
-      follow_up_tasks: {
-        Row: {
-          assigned_agent_id: string | null
-          conversation_id: string
-          created_at: string
-          follow_up_date: string
-          id: string
-          priority: string
-          reminder_text: string | null
-          reminder_type: string
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          assigned_agent_id?: string | null
-          conversation_id: string
+          user_id?: string
+          property_id?: string
           created_at?: string
-          follow_up_date: string
-          id?: string
-          priority: string
-          reminder_text?: string | null
-          reminder_type: string
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          assigned_agent_id?: string | null
-          conversation_id?: string
-          created_at?: string
-          follow_up_date?: string
-          id?: string
-          priority?: string
-          reminder_text?: string | null
-          reminder_type?: string
-          status?: string
-          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "follow_up_tasks_assigned_agent_id_fkey"
-            columns: ["assigned_agent_id"]
-            referencedRelation: "agents"
+            foreignKeyName: "saved_properties_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "follow_up_tasks_conversation_id_fkey"
-            columns: ["conversation_id"]
-            referencedRelation: "conversations"
+            foreignKeyName: "saved_properties_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           }
         ]
       }
-      lead_tags: {
+      customer_inquiries: {
         Row: {
-          conversation_id: string
-          created_at: string
           id: string
-          is_auto_generated: boolean | null
-          tag_name: string
+          user_id: string
+          property_id: string | null
+          inquiry_type: string
+          message: string
+          status: string
+          created_at: string
+          updated_at: string
         }
         Insert: {
-          conversation_id: string
-          created_at?: string
           id?: string
-          is_auto_generated?: boolean | null
-          tag_name: string
+          user_id: string
+          property_id?: string | null
+          inquiry_type: string
+          message: string
+          status?: string
+          created_at?: string
+          updated_at?: string
         }
         Update: {
-          conversation_id?: string
-          created_at?: string
           id?: string
-          is_auto_generated?: boolean | null
-          tag_name?: string
+          user_id?: string
+          property_id?: string | null
+          inquiry_type?: string
+          message?: string
+          status?: string
+          created_at?: string
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "lead_tags_conversation_id_fkey"
-            columns: ["conversation_id"]
-            referencedRelation: "conversations"
+            foreignKeyName: "customer_inquiries_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_inquiries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           }
         ]
       }
-      user_roles: {
+      reviews: {
         Row: {
-          created_at: string
           id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          user_id: string | null
+          property_id: string | null
+          rating: number
+          comment: string | null
+          status: string
+          created_at: string
+          updated_at: string
         }
         Insert: {
-          created_at?: string
           id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          user_id?: string | null
+          property_id?: string | null
+          rating: number
+          comment?: string | null
+          status?: string
+          created_at?: string
+          updated_at?: string
         }
         Update: {
-          created_at?: string
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
+          user_id?: string | null
+          property_id?: string | null
+          rating?: number
+          comment?: string | null
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      site_settings: {
+        Row: {
+          id: string
+          setting_key: string
+          setting_value: Json
+          description: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          setting_key: string
+          setting_value: Json
+          description?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          setting_key?: string
+          setting_value?: Json
+          description?: string | null
+          created_at?: string
+          updated_at?: string
         }
         Relationships: []
+      }
+      admin_users: {
+        Row: {
+          id: string
+          user_id: string
+          email: string
+          full_name: string | null
+          role: string
+          status: string
+          requires_mfa: boolean
+          mfa_enabled: boolean
+          mfa_verified_at: string | null
+          password_changed_at: string
+          password_expires_at: string
+          last_login_at: string | null
+          last_login_ip: string | null
+          failed_login_attempts: number
+          locked_until: string | null
+          invited_by_admin_id: string | null
+          invitation_token: string | null
+          invitation_accepted_at: string | null
+          invitation_expires_at: string | null
+          created_at: string
+          updated_at: string
+          notes: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          email: string
+          full_name?: string | null
+          role?: string
+          status?: string
+          requires_mfa?: boolean
+          mfa_enabled?: boolean
+          mfa_verified_at?: string | null
+          password_changed_at?: string
+          password_expires_at?: string
+          last_login_at?: string | null
+          last_login_ip?: string | null
+          failed_login_attempts?: number
+          locked_until?: string | null
+          invited_by_admin_id?: string | null
+          invitation_token?: string | null
+          invitation_accepted_at?: string | null
+          invitation_expires_at?: string | null
+          created_at?: string
+          updated_at?: string
+          notes?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          email?: string
+          full_name?: string | null
+          role?: string
+          status?: string
+          requires_mfa?: boolean
+          mfa_enabled?: boolean
+          mfa_verified_at?: string | null
+          password_changed_at?: string
+          password_expires_at?: string
+          last_login_at?: string | null
+          last_login_ip?: string | null
+          failed_login_attempts?: number
+          locked_until?: string | null
+          invited_by_admin_id?: string | null
+          invitation_token?: string | null
+          invitation_accepted_at?: string | null
+          invitation_expires_at?: string | null
+          created_at?: string
+          updated_at?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_users_invited_by_admin_id_fkey"
+            columns: ["invited_by_admin_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      admin_login_attempts: {
+        Row: {
+          id: string
+          admin_user_id: string | null
+          email: string
+          ip_address: string
+          user_agent: string | null
+          success: boolean
+          failure_reason: string | null
+          attempted_at: string
+        }
+        Insert: {
+          id?: string
+          admin_user_id?: string | null
+          email: string
+          ip_address: string
+          user_agent?: string | null
+          success?: boolean
+          failure_reason?: string | null
+          attempted_at?: string
+        }
+        Update: {
+          id?: string
+          admin_user_id?: string | null
+          email?: string
+          ip_address?: string
+          user_agent?: string | null
+          success?: boolean
+          failure_reason?: string | null
+          attempted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_login_attempts_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      admin_audit_logs: {
+        Row: {
+          id: string
+          admin_user_id: string
+          action: string
+          resource_type: string | null
+          resource_id: string | null
+          changes: Json | null
+          ip_address: string | null
+          user_agent: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          admin_user_id: string
+          action: string
+          resource_type?: string | null
+          resource_id?: string | null
+          changes?: Json | null
+          ip_address?: string | null
+          user_agent?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          admin_user_id?: string
+          action?: string
+          resource_type?: string | null
+          resource_id?: string | null
+          changes?: Json | null
+          ip_address?: string | null
+          user_agent?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_audit_logs_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      admin_invitations: {
+        Row: {
+          id: string
+          email: string
+          role: string
+          invited_by_admin_id: string
+          token: string
+          status: string
+          expires_at: string
+          accepted_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          email: string
+          role?: string
+          invited_by_admin_id: string
+          token: string
+          status?: string
+          expires_at: string
+          accepted_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string
+          role?: string
+          invited_by_admin_id?: string
+          token?: string
+          status?: string
+          expires_at?: string
+          accepted_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_invitations_invited_by_admin_id_fkey"
+            columns: ["invited_by_admin_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      ip_whitelist: {
+        Row: {
+          id: string
+          ip_address: string
+          description: string | null
+          is_active: boolean
+          created_by_admin_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          ip_address: string
+          description?: string | null
+          is_active?: boolean
+          created_by_admin_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          ip_address?: string
+          description?: string | null
+          is_active?: boolean
+          created_by_admin_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ip_whitelist_created_by_admin_id_fkey"
+            columns: ["created_by_admin_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      admin_sessions: {
+        Row: {
+          id: string
+          admin_user_id: string
+          session_token: string
+          ip_address: string
+          user_agent: string | null
+          is_active: boolean
+          expires_at: string
+          last_activity_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          admin_user_id: string
+          session_token: string
+          ip_address: string
+          user_agent?: string | null
+          is_active?: boolean
+          expires_at: string
+          last_activity_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          admin_user_id?: string
+          session_token?: string
+          ip_address?: string
+          user_agent?: string | null
+          is_active?: boolean
+          expires_at?: string
+          last_activity_at?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_sessions_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      security_alerts: {
+        Row: {
+          id: string
+          alert_type: string
+          severity: string
+          title: string
+          description: string
+          related_admin_user_id: string | null
+          ip_address: string | null
+          metadata: Json | null
+          acknowledged: boolean
+          acknowledged_by_admin_id: string | null
+          acknowledged_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          alert_type: string
+          severity?: string
+          title: string
+          description: string
+          related_admin_user_id?: string | null
+          ip_address?: string | null
+          metadata?: Json | null
+          acknowledged?: boolean
+          acknowledged_by_admin_id?: string | null
+          acknowledged_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          alert_type?: string
+          severity?: string
+          title?: string
+          description?: string
+          related_admin_user_id?: string | null
+          ip_address?: string | null
+          metadata?: Json | null
+          acknowledged?: boolean
+          acknowledged_by_admin_id?: string | null
+          acknowledged_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_alerts_acknowledged_by_admin_id_fkey"
+            columns: ["acknowledged_by_admin_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "security_alerts_related_admin_user_id_fkey"
+            columns: ["related_admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      admin_mfa: {
+        Row: {
+          id: string
+          admin_user_id: string
+          secret: string
+          backup_codes: string[]
+          verified_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          admin_user_id: string
+          secret: string
+          backup_codes?: string[]
+          verified_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          admin_user_id?: string
+          secret?: string
+          backup_codes?: string[]
+          verified_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_mfa_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      fetch_conversation_analytics: {
-        Args: {
-          date_from?: string
-          date_to?: string
-        }
-        Returns: Json
-      }
+      [_ in never]: never
     }
     Enums: {
-      app_role: "admin" | "user"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -609,33 +870,27 @@ export type Database = {
   }
 }
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
-
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type PublicSchema = Database[Extract<keyof Database, "public">]
 
 export type Tables<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+  PublicTableNameOrOptions extends
+    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+        Database[PublicTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
+        PublicSchema["Views"])
+    ? (PublicSchema["Tables"] &
+        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -643,24 +898,20 @@ export type Tables<
     : never
 
 export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  PublicTableNameOrOptions extends
+    | keyof PublicSchema["Tables"]
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
+    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -668,24 +919,20 @@ export type TablesInsert<
     : never
 
 export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  PublicTableNameOrOptions extends
+    | keyof PublicSchema["Tables"]
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
+    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -693,43 +940,14 @@ export type TablesUpdate<
     : never
 
 export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+  PublicEnumNameOrOptions extends
+    | keyof PublicSchema["Enums"]
+    | { schema: keyof Database },
+  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+> = PublicEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
+    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
     : never
-
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
-
-export const Constants = {
-  public: {
-    Enums: {
-      app_role: ["admin", "user"],
-    },
-  },
-} as const

@@ -2,6 +2,7 @@ import { ReactNode, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import Navigation from "./Navigation";
 import Footer from "./Footer";
+import { usePageFocus } from "@/hooks/usePageFocus";
 
 interface LayoutProps {
   children: ReactNode;
@@ -9,6 +10,9 @@ interface LayoutProps {
 
 const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
+  
+  // Refetch stale queries when page comes into focus
+  usePageFocus();
 
   // Scroll to top on route change
   useEffect(() => {
