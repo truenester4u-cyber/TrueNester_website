@@ -7,8 +7,9 @@
   command = "npm run build"
   # Output directory (Vite default)
   publish = "dist"
-  # Node version
-  environment = { NODE_VERSION = "18" }
+
+[build.environment]
+  NODE_VERSION = "20"
 
 # SPA routing - redirect all routes to index.html
 [[redirects]]
