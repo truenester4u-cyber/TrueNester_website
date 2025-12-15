@@ -50,6 +50,7 @@ const allowedOrigins = [
   "http://localhost:5173",
   "https://bright-torte-7f50cf.netlify.app",
   "https://dubai-nest-hub.netlify.app", // Main production domain
+  "https://spectacular-cat-ffb517.netlify.app", // Current Netlify deployment
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
