@@ -49,6 +49,7 @@ const allowedOrigins = [
   "http://localhost:8084", // Current frontend port
   "http://localhost:5173",
   "https://bright-torte-7f50cf.netlify.app",
+  "https://dubai-nest-hub.netlify.app", // Main production domain
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
@@ -393,9 +394,71 @@ const sendSlackNotification = async (payload: any, source: "chatbot" | "property
         }
       ];
       
+      // Add property images if available
+      const propertyImages = payload.leadScoreBreakdown?.images || [];
+      const propertyDetails = payload.leadScoreBreakdown?.propertyDetails || [];
+      
+      // Helper to ensure proper image URLs for Slack (use signed URLs if needed)
+      const getSlackImageUrl = async (imagePath: string) => {
+        if (!imagePath) return "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=800&q=60";
+        if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) return imagePath;
+        
+        try {
+          // Try to create a signed URL for Slack (since images might be private)
+          const cleanPath = imagePath.replace(/^\/+/, ''); // Remove leading slashes
+          const { data, error } = await supabase.storage
+            .from('property-images')
+            .createSignedUrl(cleanPath, 60 * 60 * 24); // 24 hours for Slack
+            
+          if (!error && data?.signedUrl) {
+            console.log(`[SLACK] Generated signed URL for ${cleanPath}: ${data.signedUrl}`);
+            return data.signedUrl;
+          }
+          
+          // Fallback to public URL
+          const supabaseUrl = process.env.SUPABASE_URL || "https://jwmbxpqpjxqclfcahwcf.supabase.co";
+          const publicUrl = `${supabaseUrl}/storage/v1/object/public/property-images/${cleanPath}`;
+          console.log(`[SLACK] Using public URL for ${cleanPath}: ${publicUrl}`);
+          return publicUrl;
+        } catch (error) {
+          console.error(`[SLACK] Error generating image URL for ${imagePath}:`, error);
+          return "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=800&q=60";
+        }
+      };
+      
+      if (propertyImages.length > 0 && propertyDetails.length > 0) {
+        // Add image blocks (Slack supports up to 10 images per message)
+        const imageBlocks = await Promise.all(
+          propertyDetails.slice(0, 3).map(async (property: any) => ({
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `🏠 *${property.title}*\n📍 ${property.area} | 💰 ${property.price}`
+            },
+            accessory: {
+              type: "image",
+              image_url: await getSlackImageUrl(property.image),
+              alt_text: property.title
+            }
+          }))
+        );
+        
+        message.blocks.splice(2, 0, ...imageBlocks);
+        
+        if (propertyImages.length > 3) {
+          message.blocks.push({
+            type: "context",
+            elements: [{
+              type: "mrkdwn",
+              text: `_+${propertyImages.length - 3} more properties viewed by customer_`
+            }]
+          });
+        }
+      }
+      
       // Add admin panel context
       if (!isFirstConversation) {
-        message.blocks.splice(2, 0, {
+        message.blocks.push({
           type: "section",
           text: {
             type: "mrkdwn",
@@ -403,7 +466,7 @@ const sendSlackNotification = async (payload: any, source: "chatbot" | "property
           }
         });
       } else {
-        message.blocks.splice(2, 0, {
+        message.blocks.push({
           type: "section",
           text: {
             type: "mrkdwn",
@@ -565,7 +628,7 @@ app.get("/health", (_req: Request, res: Response) => {
   });
 });
 
-// Test endpoint for Slack notifications
+// Test endpoint for Slack notifications with images
 app.post("/api/test/slack", async (req: Request, res: Response) => {
   try {
     console.log('[TEST] Slack test endpoint called');
@@ -579,10 +642,30 @@ app.post("/api/test/slack", async (req: Request, res: Response) => {
       propertyType: "Test Property",
       preferredArea: "Test Area",
       leadScore: 100,
-      durationMinutes: 1
+      durationMinutes: 1,
+      leadScoreBreakdown: {
+        images: [
+          "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=800&q=60",
+          "sample-image.jpg"
+        ],
+        propertyDetails: [
+          {
+            title: "Test Property 1",
+            image: "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=800&q=60",
+            price: "AED 2,500,000",
+            area: "Dubai Marina"
+          },
+          {
+            title: "Test Property 2", 
+            image: "sample-image.jpg",
+            price: "AED 1,800,000",
+            area: "JBR"
+          }
+        ]
+      }
     }, "chatbot");
     
-    res.json({ success: true, message: "Test Slack notification sent" });
+    res.json({ success: true, message: "Test Slack notification sent with images" });
   } catch (error) {
     console.error('[TEST] Slack test failed:', error);
     res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
