@@ -43,6 +43,10 @@ const app = express();
 // Allow multiple origins including localhost and production
 const allowedOrigins = [
   "http://localhost:8080",
+  "http://localhost:8081",
+  "http://localhost:8082",
+  "http://localhost:8083",
+  "http://localhost:8084", // Current frontend port
   "http://localhost:5173",
   "https://bright-torte-7f50cf.netlify.app",
   process.env.FRONTEND_URL,
@@ -307,64 +311,149 @@ const authenticateRequest = (req: Request, res: Response, next: NextFunction) =>
   return next();
 };
 
-// Helper function to send Slack notifications
+// In-memory store for tracking customer conversation threads (reset on server restart)
+const customerThreads = new Map<string, { threadTs: string; conversationCount: number; lastUpdate: number }>();
+
+// Cleanup old thread data (older than 24 hours)
+setInterval(() => {
+  const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+  for (const [key, data] of customerThreads.entries()) {
+    if (data.lastUpdate < oneDayAgo) {
+      customerThreads.delete(key);
+      console.log(`[SLACK] Cleaned up old thread data for customer: ${key}`);
+    }
+  }
+}, 60 * 60 * 1000); // Run cleanup every hour
+
+// Enhanced helper function to send Slack notifications with threading support
 const sendSlackNotification = async (payload: any, source: "chatbot" | "property_inquiry" | "contact_form") => {
   const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
+  
+  console.log(`[SLACK] Attempting to send ${source} notification for: ${payload.customerName}`);
+  console.log(`[SLACK] Webhook URL configured: ${!!slackWebhookUrl}`);
+  
   if (!slackWebhookUrl) {
+    console.warn('[SLACK] No webhook URL configured - skipping notification');
     return;
   }
 
   try {
-    let message: any = {
+    const message: any = {
       text: `🔔 New Lead: ${payload.customerName || "Unknown"}`,
     };
+    
+    console.log(`[SLACK] Building message for source: ${source}`);
 
     if (source === "chatbot") {
+      // Create customer correlation like admin panel system
+      const customerPhone = payload.customerPhone || 'no-phone';
+      const customerEmail = payload.customerEmail || 'no-email';
+      const customerId = `${payload.customerName.replace(/\s+/g, '-').toLowerCase()}-${customerPhone.slice(-4) || customerEmail.slice(-4) || '0000'}`;
+      
+      const existingThread = customerThreads.get(customerId);
+      
+      let conversationCount = 1;
+      if (existingThread) {
+        conversationCount = existingThread.conversationCount + 1;
+        console.log(`[SLACK] Customer ${payload.customerName} (${customerId}) - Conversation #${conversationCount}`);
+      } else {
+        console.log(`[SLACK] New customer ${payload.customerName} - Creating customer ID: ${customerId}`);
+      }
+      
+      const isFirstConversation = conversationCount === 1;
+      const maxSubmissions = 5;
+      const isFinalSubmission = conversationCount >= maxSubmissions;
+      const previousConversations = conversationCount - 1;
+      
+      // Create admin panel compatible message format
+      message.text = `${isFirstConversation ? '🤖 NEW CUSTOMER' : '🔄 RETURNING CUSTOMER'} - ${payload.customerName} (Conversation #${conversationCount}/${maxSubmissions})`;
       message.blocks = [
         {
           type: "header",
           text: {
             type: "plain_text",
-            text: "🤖 New Chatbot Conversation",
+            text: `${isFirstConversation ? '🤖 NEW CUSTOMER' : '🔄 RETURNING CUSTOMER'} - ${payload.customerName} (${conversationCount}/${maxSubmissions})`,
             emoji: true,
           },
         },
         {
           type: "section",
-          fields: [
-            { type: "mrkdwn", text: `*Name:*\n${payload.customerName}` },
-            { type: "mrkdwn", text: `*Intent:*\n${payload.intent || "general"}` },
-            { type: "mrkdwn", text: `*Email:*\n${payload.customerEmail || "N/A"}` },
-            { type: "mrkdwn", text: `*Phone:*\n${payload.customerPhone || "N/A"}` },
-            { type: "mrkdwn", text: `*Budget:*\n${payload.budget || "Not specified"}` },
-            { type: "mrkdwn", text: `*Property Type:*\n${payload.propertyType || "Any"}` },
-            { type: "mrkdwn", text: `*Area:*\n${payload.preferredArea || "Any"}` },
-            { type: "mrkdwn", text: `*Lead Score:*\n${payload.leadScore || 0}/100` },
-          ],
+          text: {
+            type: "mrkdwn",
+            text: `*Customer ID:* \`${customerId}\`\n*Status:* ${isFirstConversation ? 'New Lead' : `Returning Customer (${previousConversations} previous conversations)`}`
+          }
         },
         {
           type: "section",
+          fields: [
+            { type: "mrkdwn", text: `*Contact:*\n📜Name: ${payload.customerName}\n📱 ${customerPhone}\n📧 ${customerEmail}` },
+            { type: "mrkdwn", text: `*This Inquiry:*\n🎯 Intent: ${payload.intent || "general"}\n💰 Budget: ${payload.budget || "Not specified"}\n📍 Areas: ${payload.preferredArea || "Any"}` },
+            { type: "mrkdwn", text: `*Analytics:*\n⭐ Lead Score: ${payload.leadScore || 0}/100\n🕰️ Duration: ${payload.durationMinutes || 0} min\n📊 Progress: ${conversationCount}/${maxSubmissions}` },
+          ],
+        }
+      ];
+      
+      // Add admin panel context
+      if (!isFirstConversation) {
+        message.blocks.splice(2, 0, {
+          type: "section",
           text: {
             type: "mrkdwn",
-            text: `*Duration:*\n${payload.durationMinutes || 0} minutes`,
-          },
-        },
+            text: `📝 *Conversation History:*\n• This customer has ${previousConversations} previous conversation(s)\n• Search admin panel with Customer ID: \`${customerId}\`\n• All conversations linked in admin dashboard`
+          }
+        });
+      } else {
+        message.blocks.splice(2, 0, {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `🔍 *Admin Panel:*\nCustomer ID: \`${customerId}\`\nUse this ID to track all future conversations from ${payload.customerName}`
+          }
+        });
+      }
+      
+      // Add completion notice for final submission
+      if (isFinalSubmission) {
+        message.blocks.push({
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `✅ *MAXIMUM CONVERSATIONS REACHED*\n${payload.customerName} has completed all ${maxSubmissions} conversations!\n\n🎯 **Action Required:** Immediate follow-up recommended\n📊 **Total Lead Value:** ${payload.leadScore || 0}/100 across ${maxSubmissions} conversations`
+          }
+        });
+      }
+      
+      // Add admin panel action buttons
+      const adminActions = [
         {
-          type: "actions",
-          elements: [
-            {
-              type: "button",
-              text: {
-                type: "plain_text",
-                text: "View in Admin Panel",
-                emoji: true,
-              },
-              url: `${process.env.FRONTEND_URL || "http://localhost:8080"}/admin/conversations`,
-              style: "primary",
-            },
-          ],
-        },
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: "View All Conversations",
+            emoji: true,
+          },
+          url: `${process.env.FRONTEND_URL || "http://localhost:8080"}/admin/conversations?customer=${encodeURIComponent(customerId)}`,
+          style: "primary",
+        }
       ];
+      
+      if (isFinalSubmission) {
+        adminActions.push({
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: "Schedule Follow-up",
+            emoji: true,
+          },
+          url: `${process.env.FRONTEND_URL || "http://localhost:8080"}/admin/conversations?action=schedule&customer=${encodeURIComponent(customerId)}`,
+          style: "danger",
+        });
+      }
+      
+      message.blocks.push({
+        type: "actions",
+        elements: adminActions
+      });
     } else if (source === "property_inquiry") {
       message.blocks = [
         {
@@ -417,116 +506,202 @@ const sendSlackNotification = async (payload: any, source: "chatbot" | "property
       ];
     }
 
-    await fetch(slackWebhookUrl, {
+    console.log(`[SLACK] Sending to webhook: ${slackWebhookUrl.substring(0, 50)}...`);
+    console.log(`[SLACK] Message payload:`, JSON.stringify(message, null, 2));
+    
+    const response = await fetch(slackWebhookUrl, {
       method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
       body: JSON.stringify(message),
     });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[SLACK] Webhook failed with status ${response.status}: ${errorText}`);
+      throw new Error(`Slack webhook failed: ${response.status} ${errorText}`);
+    }
+    
+    console.log(`[SLACK] ✅ Successfully sent ${source} notification`);
+    
+    // For chatbot messages, update conversation tracking with admin panel customer ID
+    if (source === "chatbot") {
+      const customerPhone = payload.customerPhone || 'no-phone';
+      const customerEmail = payload.customerEmail || 'no-email';
+      const customerId = `${payload.customerName.replace(/\s+/g, '-').toLowerCase()}-${customerPhone.slice(-4) || customerEmail.slice(-4) || '0000'}`;
+      
+      const existingData = customerThreads.get(customerId);
+      
+      if (!existingData) {
+        customerThreads.set(customerId, {
+          threadTs: `${Date.now()}-${customerId}`,
+          conversationCount: 1,
+          lastUpdate: Date.now()
+        });
+        console.log(`[SLACK] 📊 New customer tracking: ${payload.customerName} -> ${customerId}`);
+      } else {
+        customerThreads.set(customerId, {
+          ...existingData,
+          conversationCount: existingData.conversationCount + 1,
+          lastUpdate: Date.now()
+        });
+        console.log(`[SLACK] 🔄 Customer ${customerId}: conversation #${existingData.conversationCount + 1}`);
+      }
+    }
   } catch (error) {
-    // Silently fail Slack notifications to not block main request
+    console.error(`[SLACK] ❌ Failed to send ${source} notification:`, error);
+    // Don't throw - silently fail Slack notifications to not block main request
   }
 };
 
 app.get("/health", (_req: Request, res: Response) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+  res.json({ 
+    status: "ok", 
+    timestamp: new Date().toISOString(),
+    slackConfigured: !!process.env.SLACK_WEBHOOK_URL,
+    port: PORT
+  });
+});
+
+// Test endpoint for Slack notifications
+app.post("/api/test/slack", async (req: Request, res: Response) => {
+  try {
+    console.log('[TEST] Slack test endpoint called');
+    
+    await sendSlackNotification({
+      customerName: "Test User (API Test)",
+      customerEmail: "test@example.com",
+      customerPhone: "+971501234567",
+      intent: "test",
+      budget: "Test Budget",
+      propertyType: "Test Property",
+      preferredArea: "Test Area",
+      leadScore: 100,
+      durationMinutes: 1
+    }, "chatbot");
+    
+    res.json({ success: true, message: "Test Slack notification sent" });
+  } catch (error) {
+    console.error('[TEST] Slack test failed:', error);
+    res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+  }
 });
 
 app.post("/api/chatbot/leads", async (req: Request, res: Response) => {
-  const payload = chatbotLeadSchema.parse(req.body);
-  const nowIso = new Date().toISOString();
-  const messageTimeline = payload.messages ?? [];
-  const firstMessageTimestamp = messageTimeline[0]?.timestamp ? coerceTimestamp(messageTimeline[0].timestamp) : nowIso;
-  const lastMessageTimestamp = messageTimeline[messageTimeline.length - 1]?.timestamp
-    ? coerceTimestamp(messageTimeline[messageTimeline.length - 1]?.timestamp)
-    : firstMessageTimestamp;
-  const durationMinutes = Math.max(1, Math.round((new Date(lastMessageTimestamp).getTime() - new Date(firstMessageTimestamp).getTime()) / 60000));
+  try {
+    console.log(`[API] 📥 Received chatbot lead submission from: ${req.ip}`);
+    console.log(`[API] Request body keys: ${Object.keys(req.body).join(', ')}`);
+    
+    const payload = chatbotLeadSchema.parse(req.body);
+    console.log(`[API] ✅ Payload validation passed for: ${payload.customerName}`);
+    const nowIso = new Date().toISOString();
+    const messageTimeline = payload.messages ?? [];
+    const firstMessageTimestamp = messageTimeline[0]?.timestamp ? coerceTimestamp(messageTimeline[0].timestamp) : nowIso;
+    const lastMessageTimestamp = messageTimeline[messageTimeline.length - 1]?.timestamp
+      ? coerceTimestamp(messageTimeline[messageTimeline.length - 1]?.timestamp)
+      : firstMessageTimestamp;
+    const durationMinutes = Math.max(1, Math.round((new Date(lastMessageTimestamp).getTime() - new Date(firstMessageTimestamp).getTime()) / 60000));
 
-  const conversationId = payload.conversationId ?? randomUUID();
-  const customerId = payload.customerId ?? randomUUID();
-  const leadScoreValue = typeof payload.leadScore === "number" ? payload.leadScore : 0;
-  const leadQualityValue = payload.leadQuality ?? fallbackLeadQuality(payload.leadScore);
+    const conversationId = payload.conversationId ?? randomUUID();
+    const customerId = payload.customerId ?? randomUUID();
+    const leadScoreValue = typeof payload.leadScore === "number" ? payload.leadScore : 0;
+    const leadQualityValue = payload.leadQuality ?? fallbackLeadQuality(payload.leadScore);
 
-  const { data: conversationData, error: conversationError } = await supabase
-    .from("conversations")
-    .insert({
-      id: conversationId,
-      customer_id: customerId,
-      customer_name: payload.customerName,
-      customer_phone: payload.customerPhone,
-      customer_email: payload.customerEmail || null,
-      start_time: firstMessageTimestamp,
-      end_time: null,
-      duration_minutes: durationMinutes,
-      status: "new",
-      lead_score: leadScoreValue,
-      lead_quality: leadQualityValue,
-      budget: payload.budget,
-      property_type: payload.propertyType,
-      preferred_area: payload.preferredArea,
-      intent: payload.intent,
-      assigned_agent_id: null,
-      tags: payload.tags ?? [],
-      notes: payload.notes ?? null,
-      conversation_summary: null,
-      follow_up_date: null,
-      outcome: null,
-      conversion_value: null,
-      lead_score_breakdown: payload.leadScoreBreakdown ?? {
-        source: "chatbot",
-        score: leadScoreValue,
-        quality: leadQualityValue,
-      },
-      created_at: nowIso,
-      updated_at: nowIso,
-    })
-    .select()
-    .single();
+    const { data: conversationData, error: conversationError } = await supabase
+      .from("conversations")
+      .insert({
+        id: conversationId,
+        customer_id: customerId,
+        customer_name: payload.customerName,
+        customer_phone: payload.customerPhone,
+        customer_email: payload.customerEmail || null,
+        start_time: firstMessageTimestamp,
+        end_time: null,
+        duration_minutes: durationMinutes,
+        status: "new",
+        lead_score: leadScoreValue,
+        lead_quality: leadQualityValue,
+        budget: payload.budget,
+        property_type: payload.propertyType,
+        preferred_area: payload.preferredArea,
+        intent: payload.intent,
+        assigned_agent_id: null,
+        tags: payload.tags ?? [],
+        notes: payload.notes ?? null,
+        conversation_summary: null,
+        follow_up_date: null,
+        outcome: null,
+        conversion_value: null,
+        lead_score_breakdown: payload.leadScoreBreakdown ?? {
+          source: "chatbot",
+          score: leadScoreValue,
+          quality: leadQualityValue,
+        },
+        created_at: nowIso,
+        updated_at: nowIso,
+      })
+      .select()
+      .single();
 
-  if (conversationError) {
-    return res.status(500).json({ error: conversationError.message });
-  }
-
-  if (messageTimeline.length) {
-    const messageRows = messageTimeline.map((message) => ({
-      id: message.id,
-      conversation_id: conversationId,
-      sender: message.sender === "user" ? "customer" : message.sender,
-      message_text: message.messageText,
-      message_type: message.messageType ?? "text",
-      timestamp: coerceTimestamp(message.timestamp),
-      is_read: message.sender !== "customer" && message.sender !== "user",
-      metadata: message.metadata ?? null,
-      created_at: nowIso,
-      updated_at: nowIso,
-    }));
-
-    const { error: messagesError } = await supabase.from("chat_messages").insert(messageRows);
-    if (messagesError) {
-      await supabase.from("conversations").delete().eq("id", conversationId);
-      return res.status(500).json({ error: messagesError.message });
+    if (conversationError) {
+      console.error("Conversation insert error:", conversationError);
+      return res.status(500).json({ error: conversationError.message });
     }
-  }
 
-  // Send Slack notification asynchronously (don't wait for it)
-  sendSlackNotification({
-    customerName: payload.customerName,
-    customerEmail: payload.customerEmail,
-    customerPhone: payload.customerPhone,
-    intent: payload.intent,
-    budget: payload.budget,
-    propertyType: payload.propertyType,
-    preferredArea: payload.preferredArea,
-    leadScore: leadScoreValue,
-    durationMinutes: durationMinutes,
-  }, "chatbot").catch(() => {});
-  
-  return res.status(201).json({ id: conversationId, conversation: conversationData });
+    if (messageTimeline.length) {
+      const messageRows = messageTimeline.map((message) => ({
+        id: message.id,
+        conversation_id: conversationId,
+        sender: message.sender === "user" ? "customer" : message.sender,
+        message_text: message.messageText,
+        message_type: message.messageType ?? "text",
+        timestamp: coerceTimestamp(message.timestamp),
+        is_read: message.sender !== "customer" && message.sender !== "user",
+        metadata: message.metadata ?? null,
+        created_at: nowIso,
+        updated_at: nowIso,
+      }));
+
+      const { error: messagesError } = await supabase.from("chat_messages").insert(messageRows);
+      if (messagesError) {
+        console.error("Messages insert error:", messagesError);
+        await supabase.from("conversations").delete().eq("id", conversationId);
+        return res.status(500).json({ error: messagesError.message });
+      }
+    }
+
+    console.log(`[API] ✅ Successfully created conversation ${conversationId} for ${payload.customerName}`);
+    
+    // Send Slack notification asynchronously (don't wait for it)
+    console.log(`[API] Triggering Slack notification for conversation ${conversationId}`);
+    sendSlackNotification({
+      customerName: payload.customerName,
+      customerEmail: payload.customerEmail,
+      customerPhone: payload.customerPhone,
+      intent: payload.intent,
+      budget: payload.budget,
+      propertyType: payload.propertyType,
+      preferredArea: payload.preferredArea,
+      leadScore: leadScoreValue,
+      durationMinutes: durationMinutes,
+    }, "chatbot").catch((err) => {
+      console.error("[API] ❌ Slack notification error:", err);
+    });
+    
+    return res.status(201).json({ id: conversationId, conversation: conversationData });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      console.error("Validation error:", error.errors);
+      return res.status(400).json({ error: "Validation error", details: error.errors });
+    }
+    console.error("Chatbot leads endpoint error:", error);
+    return res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+  }
 });
 
-app.use("/api", authenticateRequest);
-
-app.get("/api/admin/conversations", async (req: Request, res: Response) => {
+app.get("/api/admin/conversations", authenticateRequest, async (req: Request, res: Response) => {
   const page = Math.max(Number(req.query.page ?? 1), 1);
   const limit = Math.min(Number(req.query.limit ?? 25), 100);
   const filters = parseConversationFilters(req.query);
@@ -545,7 +720,7 @@ app.get("/api/admin/conversations", async (req: Request, res: Response) => {
   return res.json({ data: data?.map(mapConversationRecord) ?? [], total: count ?? 0, page, limit });
 });
 
-app.get("/api/admin/conversations/:id", async (req: Request, res: Response) => {
+app.get("/api/admin/conversations/:id", authenticateRequest, async (req: Request, res: Response) => {
   const { id } = req.params;
   const { data, error } = await supabase
     .from("conversations")
@@ -560,7 +735,7 @@ app.get("/api/admin/conversations/:id", async (req: Request, res: Response) => {
   return res.json(mapConversationRecord(data));
 });
 
-app.get("/api/admin/conversations/:id/messages", async (req: Request, res: Response) => {
+app.get("/api/admin/conversations/:id/messages", authenticateRequest, async (req: Request, res: Response) => {
   const { id } = req.params;
   const { data, error } = await supabase
     .from("chat_messages")
@@ -581,7 +756,7 @@ const assignmentSchema = z.object({
   notes: z.string().max(500).optional(),
 });
 
-app.post("/api/admin/conversations/:id/assign", async (req: Request, res: Response) => {
+app.post("/api/admin/conversations/:id/assign", authenticateRequest, async (req: Request, res: Response) => {
   const { id } = req.params;
   const payload = assignmentSchema.parse(req.body) as AssignmentPayload;
 
@@ -610,7 +785,7 @@ const dispatchFollowUpNotification = async (conversationId: string, payload: Fol
   // Follow-up notification logic would go here
 };
 
-app.post("/api/admin/conversations/:id/follow-ups", async (req: Request, res: Response) => {
+app.post("/api/admin/conversations/:id/follow-ups", authenticateRequest, async (req: Request, res: Response) => {
   const { id } = req.params;
   const payload = followUpSchema.parse(req.body) as FollowUpPayload;
 
@@ -639,7 +814,7 @@ app.post("/api/admin/conversations/:id/follow-ups", async (req: Request, res: Re
   return res.status(201).json(data);
 });
 
-app.get("/api/admin/analytics", async (req: Request, res: Response) => {
+app.get("/api/admin/analytics", authenticateRequest, async (req: Request, res: Response) => {
   const dateFrom = typeof req.query.from === "string" ? req.query.from : undefined;
   const dateTo = typeof req.query.to === "string" ? req.query.to : undefined;
 
@@ -739,7 +914,7 @@ const sendPdf = (res: Response, rows: ConversationDTO[]) => {
   doc.end();
 };
 
-app.post("/api/admin/conversations/export", async (req: Request, res: Response) => {
+app.post("/api/admin/conversations/export", authenticateRequest, async (req: Request, res: Response) => {
   const { format, filters } = exportSchema.parse(req.body);
   const parsedFilters: ConversationFilters = filters ?? {};
 
@@ -759,7 +934,7 @@ app.post("/api/admin/conversations/export", async (req: Request, res: Response) 
   return sendPdf(res, rows);
 });
 
-app.get("/api/admin/search", async (req: Request, res: Response) => {
+app.get("/api/admin/search", authenticateRequest, async (req: Request, res: Response) => {
   const q = typeof req.query.query === "string" ? req.query.query.trim() : undefined;
   if (!q) {
     return res.status(400).json({ error: "Query string is required" });
@@ -768,7 +943,7 @@ app.get("/api/admin/search", async (req: Request, res: Response) => {
   let filters: ConversationFilters = { query: q };
   if (typeof req.query.filters === "string") {
     try {
-      const parsed = JSON.parse(req.query.filters); // eslint-disable-line @typescript-eslint/no-unsafe-assignment
+      const parsed = JSON.parse(req.query.filters);  
       filters = { ...filters, ...(parsed ?? {}) };
     } catch (parseError) {
       return res.status(400).json({ error: "Invalid filters JSON" });
@@ -793,4 +968,31 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: err.message ?? "Internal server error" });
 });
 
-app.listen(PORT);
+// Global error handlers
+process.on("uncaughtException", (err) => {
+  console.error("[UNCAUGHT EXCEPTION]", err);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("[UNHANDLED REJECTION]", reason, promise);
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`[${new Date().toISOString()}] TrueNester Admin API listening on port ${PORT} (all interfaces)`);
+  console.log(`Frontend URL: ${process.env.FRONTEND_URL || "http://localhost:8080"}`);
+  console.log(`Slack webhook configured: ${!!process.env.SLACK_WEBHOOK_URL}`);
+  if (process.env.SLACK_WEBHOOK_URL) {
+    console.log(`Slack webhook URL: ${process.env.SLACK_WEBHOOK_URL.substring(0, 50)}...`);
+  }
+  console.log(`Admin API key configured: ${!!ADMIN_API_KEY}`);
+  console.log(`Available endpoints:`);
+  console.log(`  - POST /api/chatbot/leads (Chatbot lead capture)`);
+  console.log(`  - GET /health (Health check)`);
+  console.log(`  - GET /api/admin/conversations (Admin conversations)`);
+  
+  // Test if server can bind properly
+  console.log(`Server should be accessible at:`);
+  console.log(`  - http://localhost:${PORT}/health`);
+  console.log(`  - http://127.0.0.1:${PORT}/health`);
+});
