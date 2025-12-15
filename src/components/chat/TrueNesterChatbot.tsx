@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { MessageCircle, Send, X } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { fetchRentalProperties, insertConversation, insertChatMessages, queryProperties } from "@/lib/supabase-queries";
+import { getSignedImageUrl } from "@/lib/image-utils";
 
 interface ChatMessage {
   id: string;
@@ -889,8 +890,17 @@ const TrueNesterChatbot = () => {
           return;
         }
 
-        const mapped: PropertyCard[] = data.slice(0, 50).map((p: any) => {
+        // Map properties with async signed URLs - fixes the dummy image issue after redeployment
+        const mappedPromises = data.slice(0, 50).map(async (p: any) => {
           const feats = Array.isArray(p.features) ? (p.features as string[]) : [];
+          
+          // Debug property data
+          console.log(`[CHATBOT] 🔄 Processing property ${p.id}: featured_image = "${p.featured_image}"`);
+          
+          // Get signed URL for the image (this fixes the dummy image issue)
+          const signedImageUrl = await getSignedImageUrl(p.featured_image);
+          console.log(`[CHATBOT] 🖼️ Image URL for ${p.id}: ${signedImageUrl}`);
+          
           return {
             id: p.id,
             title: p.title,
@@ -902,12 +912,14 @@ const TrueNesterChatbot = () => {
             size: `${p.size_sqft || 0} sq.ft`,
             type: (p.property_type?.toLowerCase() as any) || "apartment",
             tenure: p.purpose?.toLowerCase().includes("rent") ? "rent" : "buy",
-            image: p.featured_image || "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=800&q=60",
+            image: signedImageUrl,
             badges: feats.slice(0, 2),
             highlights: feats.slice(0, 3),
             availability: "Available",
           };
         });
+        
+        const mapped: PropertyCard[] = await Promise.all(mappedPromises);
         setRealProperties(mapped);
       } catch (error) {
         console.error("Exception fetching chatbot properties:", error);
@@ -1247,6 +1259,26 @@ const TrueNesterChatbot = () => {
         visitorProfile.moveTimeline ? `Timeline: ${visitorProfile.moveTimeline}` : null,
       ].filter((entry): entry is string => Boolean(entry));
 
+      // Extract property images from messages with cards
+      const propertyImages: string[] = [];
+      const propertyDetails: Array<{ title: string; image: string; price: string; area: string }> = [];
+      
+      messages.forEach((message) => {
+        if (message.cards && Array.isArray(message.cards)) {
+          message.cards.forEach((card) => {
+            if (card.image && !propertyImages.includes(card.image)) {
+              propertyImages.push(card.image);
+              propertyDetails.push({
+                title: card.title || 'Property',
+                image: card.image,
+                price: card.priceDisplay || 'P.O.A',
+                area: card.area || 'Dubai'
+              });
+            }
+          });
+        }
+      });
+
       const payload = {
         conversationId,
         customerId,
@@ -1267,6 +1299,8 @@ const TrueNesterChatbot = () => {
           reasoning: leadScore.reasoning,
           profileCompletion,
           savedProperties: savedProperties.length,
+          images: propertyImages,
+          propertyDetails: propertyDetails,
         },
         metadata: {
           source: "website-chatbot",
@@ -2069,11 +2103,18 @@ const TrueNesterChatbot = () => {
                           key={card.id}
                           className="bg-white text-slate-900 rounded-2xl overflow-hidden shadow border border-slate-100"
                         >
-                          <div
-                            className="h-40 bg-cover bg-center"
-                            style={{ backgroundImage: `url(${card.image})` }}
-                            aria-label={card.title}
-                          />
+                          <div className="h-40 relative overflow-hidden">
+                            <img 
+                              src={card.image} 
+                              alt={card.title}
+                              className="w-full h-full object-cover"
+                              onLoad={() => console.log(`[CHATBOT] Image loaded successfully: ${card.image}`)}
+                              onError={(e) => {
+                                console.warn(`[CHATBOT] Failed to load property image: ${card.image}`);
+                                e.currentTarget.src = "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=800&q=60";
+                              }}
+                            />
+                          </div>
                           <div className="p-3 space-y-2">
                             <div className="flex items-center justify-between">
                               <p className="font-semibold text-slate-900">{card.title}</p>

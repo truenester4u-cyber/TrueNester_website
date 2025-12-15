@@ -352,7 +352,7 @@ const Contact = () => {
                               onValueChange={(value) => handleInputChange("countryCode", value)}
                               disabled={loading}
                             >
-                              <SelectTrigger className="w-[140px]">
+                              <SelectTrigger className="w-20">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -373,7 +373,7 @@ const Contact = () => {
                               onChange={(e) => handleInputChange("phone", e.target.value)}
                               required 
                               disabled={loading}
-                              className="flex-1"
+                              className="flex-1 min-w-0"
                             />
                           </div>
                         </div>

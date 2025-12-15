@@ -24,11 +24,9 @@ interface LocationFormData {
   slug: string;
   city: string;
   description: string;
-  image_url: string;
-  properties_count: number;
-  price_range: string;
-  features: string[];
-  published: boolean;
+  image: string;
+  property_count: number;
+  featured: boolean;
 }
 
 const LocationForm = () => {
@@ -38,17 +36,14 @@ const LocationForm = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(!!id);
-  const [featureInput, setFeatureInput] = useState("");
   const [formData, setFormData] = useState<LocationFormData>({
     name: "",
     slug: "",
     city: searchParams.get("city") || "Dubai",
     description: "",
-    image_url: "",
-    properties_count: 0,
-    price_range: "",
-    features: [],
-    published: false,
+    image: "",
+    property_count: 0,
+    featured: false,
   });
 
   useEffect(() => {
@@ -73,11 +68,9 @@ const LocationForm = () => {
         slug: data.slug || "",
         city: data.city || "Dubai",
         description: data.description || "",
-        image_url: data.image_url || "",
-        properties_count: data.properties_count || 0,
-        price_range: data.price_range || "",
-        features: data.features || [],
-        published: data.published || false,
+        image: data.image || "",
+        property_count: data.property_count || 0,
+        featured: data.featured || false,
       });
     } catch (error: any) {
       toast({
@@ -104,7 +97,7 @@ const LocationForm = () => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "properties_count" ? parseInt(value) || 0 : value,
+      [name]: name === "property_count" ? parseInt(value) || 0 : value,
     }));
 
     // Auto-generate slug from name
@@ -114,23 +107,6 @@ const LocationForm = () => {
         slug: generateSlug(value),
       }));
     }
-  };
-
-  const handleAddFeature = () => {
-    if (featureInput.trim()) {
-      setFormData((prev) => ({
-        ...prev,
-        features: [...prev.features, featureInput.trim()],
-      }));
-      setFeatureInput("");
-    }
-  };
-
-  const handleRemoveFeature = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      features: prev.features.filter((_, i) => i !== index),
-    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -155,11 +131,9 @@ const LocationForm = () => {
           name: formData.name,
           slug: formData.slug,
           description: formData.description,
-          image_url: formData.image_url,
-          properties_count: formData.properties_count,
-          price_range: formData.price_range,
-          features: formData.features,
-          published: formData.published,
+          image: formData.image,
+          property_count: formData.property_count,
+          featured: formData.featured,
           updated_at: new Date().toISOString(),
         };
         
@@ -186,11 +160,9 @@ const LocationForm = () => {
           name: formData.name,
           slug: formData.slug,
           description: formData.description,
-          image_url: formData.image_url,
-          properties_count: formData.properties_count,
-          price_range: formData.price_range,
-          features: formData.features,
-          published: formData.published,
+          image: formData.image,
+          property_count: formData.property_count,
+          featured: formData.featured,
         };
         
         // Only include city if it's set (avoids error if column doesn't exist)
@@ -335,18 +307,18 @@ const LocationForm = () => {
 
               {/* Image URL */}
               <div className="space-y-2">
-                <Label htmlFor="image_url">Image URL</Label>
+                <Label htmlFor="image">Image URL</Label>
                 <Input
-                  id="image_url"
-                  name="image_url"
-                  value={formData.image_url}
+                  id="image"
+                  name="image"
+                  value={formData.image}
                   onChange={handleInputChange}
                   placeholder="https://example.com/image.jpg"
                 />
-                {formData.image_url && (
+                {formData.image && (
                   <div className="mt-2">
                     <img
-                      src={formData.image_url}
+                      src={formData.image}
                       alt="Preview"
                       className="w-full max-w-md h-48 object-cover rounded-lg"
                       onError={(e) => {
@@ -360,76 +332,29 @@ const LocationForm = () => {
 
               {/* Properties Count */}
               <div className="space-y-2">
-                <Label htmlFor="properties_count">Properties Count</Label>
+                <Label htmlFor="property_count">Properties Count</Label>
                 <Input
-                  id="properties_count"
-                  name="properties_count"
+                  id="property_count"
+                  name="property_count"
                   type="number"
-                  value={formData.properties_count}
+                  value={formData.property_count}
                   onChange={handleInputChange}
                   placeholder="e.g., 120"
                   min="0"
                 />
               </div>
 
-              {/* Price Range */}
-              <div className="space-y-2">
-                <Label htmlFor="price_range">Price Range</Label>
-                <Input
-                  id="price_range"
-                  name="price_range"
-                  value={formData.price_range}
-                  onChange={handleInputChange}
-                  placeholder="e.g., AED 800K - 15M"
-                />
-              </div>
-
-              {/* Features */}
-              <div className="space-y-2">
-                <Label>Features</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={featureInput}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFeatureInput(e.target.value)}
-                    placeholder="Add a feature"
-                    onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleAddFeature();
-                      }
-                    }}
-                  />
-                  <Button type="button" onClick={handleAddFeature}>
-                    Add
-                  </Button>
-                </div>
-                {formData.features.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    {formData.features.map((feature, index) => (
-                      <Badge
-                        key={index}
-                        variant="secondary"
-                        className="cursor-pointer"
-                        onClick={() => handleRemoveFeature(index)}
-                      >
-                        {feature} ×
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Published Status */}
+              {/* Featured Status */}
               <div className="flex items-center space-x-2">
                 <Switch
-                  id="published"
-                  checked={formData.published}
+                  id="featured"
+                  checked={formData.featured}
                   onCheckedChange={(checked: boolean) =>
-                    setFormData((prev) => ({ ...prev, published: checked }))
+                    setFormData((prev) => ({ ...prev, featured: checked }))
                   }
                 />
-                <Label htmlFor="published" className="cursor-pointer">
-                  Published
+                <Label htmlFor="featured" className="cursor-pointer">
+                  Featured
                 </Label>
               </div>
 

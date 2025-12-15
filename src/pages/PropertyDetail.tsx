@@ -461,20 +461,20 @@ const PropertyDetail = () => {
                           style={{ transform: `translateX(-${mobileImageIndex * 100}%)` }}
                         >
                           {images.length > 0 ? images.map((img, idx) => (
-                            <div key={idx} className="min-w-full h-full relative flex-shrink-0">
+                            <div key={idx} className="min-w-full h-full relative flex-shrink-0 bg-black">
                               <img 
                                 src={img || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop"} 
                                 alt={`${property.title} - ${idx + 1}`}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain"
                                 onClick={() => openLightbox(idx)}
                               />
                             </div>
                           )) : (
-                            <div className="min-w-full h-full relative flex-shrink-0">
+                            <div className="min-w-full h-full relative flex-shrink-0 bg-black">
                               <img 
                                 src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop"
                                 alt={property.title}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain"
                                 onClick={() => openLightbox(0)}
                               />
                             </div>
@@ -1504,8 +1504,8 @@ const PropertyDetail = () => {
                           <div className="pt-4 text-sm text-muted-foreground">
                             Or contact us directly:
                             <div className="flex flex-col gap-2 mt-2">
-                              <a href="tel:+971501234567" className="flex items-center gap-1 hover:text-primary transition-colors">
-                                <Phone className="h-4 w-4" /> +971 50 123 4567
+                              <a href="tel:+971557925525" className="flex items-center gap-1 hover:text-primary transition-colors">
+                                <Phone className="h-4 w-4" /> +971 557 925525
                               </a>
                               <a href="mailto:info@truenester.com" className="flex items-center gap-1 hover:text-primary transition-colors">
                                 <Mail className="h-4 w-4" /> info@truenester.com

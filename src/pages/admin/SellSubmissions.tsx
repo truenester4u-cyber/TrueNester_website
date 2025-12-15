@@ -61,16 +61,39 @@ const SellSubmissions = () => {
   const fetchSubmissions = async () => {
     try {
       setLoading(true);
+      console.log("[SELL-ADMIN] Fetching sell submissions...");
+      
       const { data, error } = await supabase
         .from("conversations")
         .select("*")
         .contains("tags", ["sell"])
         .order("start_time", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("[SELL-ADMIN] Error fetching submissions:", error);
+        throw error;
+      }
+      
+      const rows = (data as SellSubmission[]) || [];
+      console.log(`[SELL-ADMIN] Found ${rows.length} sell submissions`);
 
-      setSubmissions(data as SellSubmission[] || []);
+      // Images are now served from a public bucket - no signing needed
+      // Just ensure URLs are properly formatted
+      const processed = rows.map((row) => {
+        const imgs = row.lead_score_breakdown?.images || [];
+        if (imgs.length === 0) return row;
+        
+        console.log(`[SELL-ADMIN] Submission ${row.id} has ${imgs.length} images:`);
+        imgs.forEach((url, i) => console.log(`  Image ${i + 1}: ${url}`));
+        
+        // Images should already be full public URLs, just return as-is
+        return row;
+      });
+
+      setSubmissions(processed);
+      console.log("[SELL-ADMIN] ✅ Submissions loaded successfully");
     } catch (error: any) {
+      console.error("[SELL-ADMIN] ❌ Failed to fetch submissions:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to fetch sell submissions",
@@ -310,6 +333,11 @@ const SellSubmissions = () => {
                               src={url}
                               alt={`Property ${idx + 1}`}
                               className="w-full h-full object-cover"
+                              onLoad={() => console.log(`[SELL] Image loaded successfully: ${url}`)}
+                              onError={(e) => {
+                                console.warn(`[SELL] Failed to load image: ${url}`);
+                                e.currentTarget.src = "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=800&q=60";
+                              }}
                             />
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center">
                               <ExternalLink className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />

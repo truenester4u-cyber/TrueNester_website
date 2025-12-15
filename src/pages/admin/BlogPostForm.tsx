@@ -61,7 +61,7 @@ const BlogPostForm = () => {
 
   const fetchPost = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("blog_posts")
         .select("*")
         .eq("id", id)
@@ -162,13 +162,13 @@ const BlogPostForm = () => {
 
       let result;
       if (id) {
-        result = await supabase
+        result = await (supabase as any)
           .from("blog_posts")
           .update(postData)
           .eq("id", id)
           .select();
       } else {
-        result = await supabase
+        result = await (supabase as any)
           .from("blog_posts")
           .insert([postData])
           .select();

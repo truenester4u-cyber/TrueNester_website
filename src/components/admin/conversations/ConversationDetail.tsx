@@ -19,6 +19,7 @@ import { ChatHistory } from "./ChatHistory";
 import { AgentAssignmentDrawer } from "./AgentAssignmentDrawer";
 import { cn } from "@/lib/utils";
 import { Mail, Phone, MapPin, Tag, Clock, UserRound, Image as ImageIcon, ExternalLink } from "lucide-react";
+import { getImageUrl, getSignedImageUrl } from "@/lib/image-utils";
 
 interface ConversationDetailProps {
   conversation?: Conversation;
@@ -55,11 +56,23 @@ export const ConversationDetail = ({
     setNotesDraft(conversation?.notes ?? "");
   }, [conversation]);
 
-  // Extract property images from lead_score_breakdown if available
+  // Extract property images and details from lead_score_breakdown if available
   const propertyImages = useMemo(() => {
     if (conversation?.leadScoreBreakdown && typeof conversation.leadScoreBreakdown === 'object') {
       const breakdown = conversation.leadScoreBreakdown as any;
-      return (breakdown.images || []) as string[];
+      const images = (breakdown.images || []) as string[];
+      console.log(`[ADMIN] Extracted ${images.length} images from conversation ${conversation.id}:`, images);
+      return images;
+    }
+    return [];
+  }, [conversation]);
+
+  const propertyDetails = useMemo(() => {
+    if (conversation?.leadScoreBreakdown && typeof conversation.leadScoreBreakdown === 'object') {
+      const breakdown = conversation.leadScoreBreakdown as any;
+      const details = (breakdown.propertyDetails || []) as Array<{ title: string; image: string; price: string; area: string }>;
+      console.log(`[ADMIN] Extracted ${details.length} property details from conversation ${conversation.id}:`, details);
+      return details;
     }
     return [];
   }, [conversation]);
@@ -155,27 +168,32 @@ export const ConversationDetail = ({
           <Card className="p-4 rounded-3xl">
             <div className="flex items-center gap-2 mb-3">
               <ImageIcon className="h-4 w-4 text-slate-600" />
-              <p className="text-sm font-semibold text-slate-700">Property Images ({propertyImages.length})</p>
+              <p className="text-sm font-semibold text-slate-700">Properties Viewed ({propertyImages.length})</p>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {propertyImages.map((url, index) => (
-                <a 
-                  key={index} 
-                  href={url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="group relative aspect-square overflow-hidden rounded-lg border border-slate-200 hover:border-primary transition-colors"
-                >
-                  <img 
-                    src={url} 
-                    alt={`Property ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center">
-                    <ExternalLink className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                </a>
-              ))}
+            <div className="space-y-3">
+              {propertyDetails.length > 0 ? (
+                propertyDetails.map((property, index) => {
+                  return (
+                    <PropertyImageCard
+                      key={index}
+                      imagePath={property.image}
+                      title={property.title}
+                      area={property.area}
+                      price={property.price}
+                    />
+                  );
+                })
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {propertyImages.map((url, index) => (
+                    <SimplePropertyImage
+                      key={index}
+                      imagePath={url}
+                      index={index}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </Card>
         )}
@@ -252,3 +270,132 @@ const Field = ({ icon, label, value }: { icon: ReactNode; label: string; value: 
     <span className="font-medium text-slate-800">{value}</span>
   </div>
 );
+// Property image components with proper async loading
+const PropertyImageCard = ({ imagePath, title, area, price }: { 
+  imagePath: string; 
+  title: string; 
+  area: string; 
+  price: string; 
+}) => {
+  const [imageUrl, setImageUrl] = useState<string>("https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=800&q=60");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    
+    const loadImage = async () => {
+      try {
+        console.log(`[ADMIN] Loading property image: ${imagePath}`);
+        const url = await getSignedImageUrl(imagePath);
+        if (mounted) {
+          setImageUrl(url);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error(`[ADMIN] Failed to load signed URL for: ${imagePath}`, error);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+    
+    loadImage();
+    
+    return () => { mounted = false; };
+  }, [imagePath]);
+
+  return (
+    <a 
+      href={imageUrl} 
+      target="_blank" 
+      rel="noopener noreferrer"
+      className="group flex gap-3 p-3 rounded-lg border border-slate-200 hover:border-primary transition-colors bg-white"
+    >
+      <div className="relative w-24 h-24 flex-shrink-0 overflow-hidden rounded-md">
+        {loading ? (
+          <div className="w-full h-full bg-slate-200 animate-pulse flex items-center justify-center">
+            <span className="text-xs text-slate-500">Loading...</span>
+          </div>
+        ) : (
+          <img 
+            src={imageUrl} 
+            alt={title}
+            className="w-full h-full object-cover"
+            onLoad={() => console.log(`[ADMIN] Property image loaded successfully: ${imageUrl}`)}
+            onError={(e) => {
+              console.warn(`[ADMIN] Image failed to load: ${imageUrl}. Original path: ${imagePath}`);
+              e.currentTarget.src = "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=800&q=60";
+            }}
+          />
+        )}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+          <ExternalLink className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-slate-900 truncate">{title}</p>
+        <p className="text-xs text-slate-500 mt-1">📍 {area}</p>
+        <p className="text-xs font-semibold text-primary mt-1">💰 {price}</p>
+      </div>
+    </a>
+  );
+};
+
+const SimplePropertyImage = ({ imagePath, index }: { imagePath: string; index: number }) => {
+  const [imageUrl, setImageUrl] = useState<string>("https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=800&q=60");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    
+    const loadImage = async () => {
+      try {
+        console.log(`[ADMIN] Loading simple image: ${imagePath}`);
+        const url = await getSignedImageUrl(imagePath);
+        if (mounted) {
+          setImageUrl(url);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error(`[ADMIN] Failed to load signed URL for: ${imagePath}`, error);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+    
+    loadImage();
+    
+    return () => { mounted = false; };
+  }, [imagePath]);
+
+  return (
+    <a 
+      href={imageUrl} 
+      target="_blank" 
+      rel="noopener noreferrer"
+      className="group relative aspect-square overflow-hidden rounded-lg border border-slate-200 hover:border-primary transition-colors"
+    >
+      {loading ? (
+        <div className="w-full h-full bg-slate-200 animate-pulse flex items-center justify-center">
+          <span className="text-xs text-slate-500">Loading...</span>
+        </div>
+      ) : (
+        <img 
+          src={imageUrl} 
+          alt={`Property ${index + 1}`}
+          className="w-full h-full object-cover"
+          onLoad={() => console.log(`[ADMIN] Simple image loaded successfully: ${imageUrl}`)}
+          onError={(e) => {
+            console.warn(`[ADMIN] Simple image failed to load: ${imageUrl}. Original path: ${imagePath}`);
+            e.currentTarget.src = "https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=800&q=60";
+          }}
+        />
+      )}
+      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center">
+        <ExternalLink className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+      </div>
+    </a>
+  );
+};
+

@@ -98,9 +98,7 @@ const ConversationsPage = () => {
   const agentsQuery = useQuery<Agent[]>({
     queryKey: ["admin-agents"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("agents").select("*").order("name");
-      if (error) throw error;
-      return data as Agent[];
+      return []; // No agents table exists - return empty array
     },
   });
 

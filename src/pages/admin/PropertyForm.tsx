@@ -324,11 +324,19 @@ const PropertyForm = () => {
 
         if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage
+        // Try signed URL first (works with private buckets); fallback to public URL
+        const { data: signedData, error: signedError } = await supabase.storage
           .from("property-images")
-          .getPublicUrl(filePath);
+          .createSignedUrl(filePath, 60 * 60 * 24 * 7);
 
-        uploadedUrls.push(publicUrl);
+        if (!signedError && signedData?.signedUrl) {
+          uploadedUrls.push(signedData.signedUrl);
+        } else {
+          const { data: { publicUrl } } = supabase.storage
+            .from("property-images")
+            .getPublicUrl(filePath);
+          uploadedUrls.push(publicUrl);
+        }
       }
 
       setImages((prev) => [...prev, ...uploadedUrls]);
@@ -510,11 +518,18 @@ const PropertyForm = () => {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
+      const { data: signedData, error: signedError } = await supabase.storage
         .from("property-images")
-        .getPublicUrl(filePath);
+        .createSignedUrl(filePath, 60 * 60 * 24 * 7);
 
-      setNewFloorPlan({ ...newFloorPlan, image: publicUrl });
+      if (!signedError && signedData?.signedUrl) {
+        setNewFloorPlan({ ...newFloorPlan, image: signedData.signedUrl });
+      } else {
+        const { data: { publicUrl } } = supabase.storage
+          .from("property-images")
+          .getPublicUrl(filePath);
+        setNewFloorPlan({ ...newFloorPlan, image: publicUrl });
+      }
 
       toast({
         title: "Success",

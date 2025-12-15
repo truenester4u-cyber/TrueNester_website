@@ -105,25 +105,52 @@ const Sell = () => {
     for (const { file } of uploadedImages) {
       try {
         const timestamp = Date.now();
-        const fileName = `sell-inquiry-${timestamp}-${Math.random().toString(36).substring(7)}-${file.name}`;
+        // Sanitize filename: remove special chars that could cause issues
+        const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const fileName = `sell-inquiry-${timestamp}-${Math.random().toString(36).substring(7)}-${sanitizedName}`;
         const filePath = `sell-properties/${fileName}`;
 
-        const { error: uploadError } = await supabase.storage
+        console.log(`[SELL] Uploading image: ${filePath}, type: ${file.type}, size: ${file.size}`);
+
+        // Read file as ArrayBuffer to ensure clean binary upload
+        const arrayBuffer = await file.arrayBuffer();
+        
+        const { error: uploadError, data: uploadData } = await supabase.storage
           .from("property-images")
-          .upload(filePath, file);
+          .upload(filePath, arrayBuffer, {
+            contentType: file.type || 'image/jpeg',
+            cacheControl: '3600',
+            upsert: false
+          });
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error(`[SELL] Upload error for ${filePath}:`, uploadError);
+          // Continue with other images instead of failing completely
+          toast({
+            title: "Image upload failed",
+            description: `Could not upload ${file.name}: ${uploadError.message}`,
+            variant: "destructive",
+          });
+          continue;
+        }
 
+        console.log(`[SELL] Upload successful:`, uploadData);
+
+        // Use public URL since bucket is public (more reliable than signed URLs)
         const { data: publicUrlData } = supabase.storage
           .from("property-images")
           .getPublicUrl(filePath);
-
-        imageUrls.push(publicUrlData.publicUrl);
+        
+        if (publicUrlData?.publicUrl) {
+          console.log(`[SELL] Public URL: ${publicUrlData.publicUrl}`);
+          imageUrls.push(publicUrlData.publicUrl);
+        }
       } catch (error: any) {
-        console.error("Image upload error:", error);
+        console.error("[SELL] Image upload exception:", error);
       }
     }
 
+    console.log(`[SELL] Total images uploaded: ${imageUrls.length}`);
     return imageUrls;
   };
 
@@ -140,16 +167,22 @@ const Sell = () => {
     }
 
     setLoading(true);
+    console.log("[SELL] Starting submission...");
 
     try {
+      // Step 1: Upload images
+      console.log("[SELL] Step 1: Uploading images...");
       const imageUrls = await uploadImagesToSupabase();
+      console.log(`[SELL] Images uploaded: ${imageUrls.length}`);
 
       const conversationId = crypto.randomUUID();
       const messageId = crypto.randomUUID();
       const customerId = crypto.randomUUID();
       const timestamp = new Date().toISOString();
 
-      const { error: conversationError } = await supabase
+      // Step 2: Create conversation
+      console.log("[SELL] Step 2: Creating conversation...");
+      const { error: conversationError, data: conversationData } = await supabase
         .from("conversations")
         .insert({
           id: conversationId,
@@ -172,10 +205,17 @@ const Sell = () => {
             images: imageUrls,
             imageCount: imageUrls.length,
           },
-        });
+        })
+        .select();
 
-      if (conversationError) throw conversationError;
+      if (conversationError) {
+        console.error("[SELL] Conversation insert error:", conversationError);
+        throw conversationError;
+      }
+      console.log("[SELL] Conversation created:", conversationData);
 
+      // Step 3: Create chat message
+      console.log("[SELL] Step 3: Creating chat message...");
       const { error: messageError } = await supabase
         .from("chat_messages")
         .insert({
@@ -195,82 +235,87 @@ const Sell = () => {
           },
         });
 
-      if (messageError) throw messageError;
+      if (messageError) {
+        console.error("[SELL] Chat message insert error:", messageError);
+        throw messageError;
+      }
+      console.log("[SELL] Chat message created successfully");
 
+      // Step 4: Send Slack notification
+      console.log("[SELL] Step 4: Sending Slack notification...");
       const slackWebhookUrl = import.meta.env.VITE_SLACK_WEBHOOK_QUOTES_URL || import.meta.env.VITE_SLACK_WEBHOOK_URL;
+      console.log("[SELL] Slack webhook configured:", !!slackWebhookUrl);
+      
       if (slackWebhookUrl) {
-        // Send Slack notification without blocking (with timeout)
-        Promise.race([
-          fetch(slackWebhookUrl, {
-            method: "POST",
-            mode: "no-cors",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              text: "🏷️ New valuation request",
-              blocks: [
-                {
-                  type: "header",
-                  text: { type: "plain_text", text: "🏷️ New Valuation Request", emoji: true },
-                },
-                {
-                  type: "section",
-                  fields: [
-                    { type: "mrkdwn", text: `*Name:*\n${formData.fullName}` },
-                    { type: "mrkdwn", text: `*Email:*\n${formData.email}` },
-                    { type: "mrkdwn", text: `*Phone:*\n${formData.phone}` },
-                    { type: "mrkdwn", text: `*Type:*\n${formData.propertyType}` },
-                    { type: "mrkdwn", text: `*Location:*\n${formData.location}` },
-                    { type: "mrkdwn", text: `*Size:*\n${formData.size} sqft` },
-                    { type: "mrkdwn", text: `*Expected Price:*\n${formData.expectedPrice || "N/A"}` },
-                    { type: "mrkdwn", text: `*Images Uploaded:*\n${imageUrls.length} image(s)` },
-                  ],
-                },
-                {
-                  type: "section",
-                  text: { type: "mrkdwn", text: `*Details:*\n${formData.details || "N/A"}` },
-                },
-                ...(imageUrls.length > 0 ? [
-                  {
-                    type: "section",
-                    text: { type: "mrkdwn", text: `*Property Images (${imageUrls.length}):*` },
-                  },
-                  ...imageUrls.slice(0, 3).map((url) => ({
-                    type: "image",
-                    image_url: url,
-                    alt_text: "Property image",
-                  })),
-                  ...(imageUrls.length > 3 ? [
-                    {
-                      type: "context",
-                      elements: [
-                        {
-                          type: "mrkdwn",
-                          text: `_+${imageUrls.length - 3} more image(s) - view in admin panel_`,
-                        },
-                      ],
-                    },
-                  ] : []),
-                ] : []),
-                {
-                  type: "actions",
-                  elements: [
-                    {
-                      type: "button",
-                      text: { type: "plain_text", text: "Open in Admin", emoji: true },
-                      url: `${window.location.origin}/admin/conversations`,
-                      style: "primary",
-                    },
-                  ],
+        console.log("[SELL] Sending Slack notification with images:", imageUrls);
+        
+        // Build simple text with image links (more reliable than image blocks)
+        const imageLinksText = imageUrls.length > 0 
+          ? `\n\n📸 *Property Images (${imageUrls.length}):*\n${imageUrls.map((url, i) => `<${url}|Image ${i + 1}>`).join(' | ')}`
+          : '';
+
+        // Build the complete Slack message - simplified format for reliability
+        const slackPayload = {
+          text: `🏷️ New Valuation Request from ${formData.fullName}`,
+          blocks: [
+            {
+              type: "header",
+              text: { type: "plain_text", text: "🏷️ New Valuation Request", emoji: true },
+            },
+            {
+              type: "section",
+              text: { 
+                type: "mrkdwn", 
+                text: `*Name:* ${formData.fullName}\n*Email:* ${formData.email}\n*Phone:* ${formData.phone}` 
+              },
+            },
+            {
+              type: "section",
+              text: { 
+                type: "mrkdwn", 
+                text: `*Property Type:* ${formData.propertyType}\n*Location:* ${formData.location}\n*Size:* ${formData.size} sqft\n*Expected Price:* ${formData.expectedPrice || "N/A"}` 
+              },
+            },
+            {
+              type: "section",
+              text: { 
+                type: "mrkdwn", 
+                text: `*Details:* ${formData.details || "No additional details"}${imageLinksText}` 
+              },
+            },
+            {
+              type: "divider",
+            },
+            {
+              type: "context",
+              elements: [
+                { 
+                  type: "mrkdwn", 
+                  text: `📅 Submitted: ${new Date().toLocaleString()} | <${window.location.origin}/admin/sell-submissions|View in Admin Panel>` 
                 },
               ],
-            }),
-          }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
-        ]).catch(() => {
-          // Ignore Slack errors and timeouts to avoid blocking the user
+            },
+          ],
+        };
+
+        console.log("[SELL] Slack payload:", JSON.stringify(slackPayload, null, 2));
+
+        // Send Slack notification using no-cors mode (required for Slack webhooks from browser)
+        fetch(slackWebhookUrl, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(slackPayload),
+        }).then(() => {
+          console.log("[SELL] ✅ Slack notification sent (no-cors mode)");
+        }).catch((slackError) => {
+          console.warn("[SELL] Slack notification failed:", slackError);
         });
+      } else {
+        console.warn("[SELL] No Slack webhook URL configured - skipping notification");
       }
 
+      console.log("[SELL] ✅ Submission completed successfully!");
       toast({
         title: "Request submitted",
         description: "Thank you! Our valuation team will contact you within 24 hours.",
@@ -289,6 +334,7 @@ const Sell = () => {
       });
       setUploadedImages([]);
     } catch (error: any) {
+      console.error("[SELL] ❌ Submission failed:", error);
       toast({
         title: "Submission failed",
         description: error.message || "Could not send your request. Please try again.",
