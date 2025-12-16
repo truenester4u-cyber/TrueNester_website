@@ -88,12 +88,19 @@ export const AnalyticsOverview = ({ data, loading, range, onRangeChange, onRefre
           <div className="space-y-4">
             <Card className="p-4">
               <p className="text-sm font-semibold text-slate-700">Lead Quality Distribution</p>
-              <ResponsiveContainer width="100%" height={220}>
+              <ChartContainer
+                config={{ 
+                  hot: { label: "Hot", color: "#ef4444" },
+                  warm: { label: "Warm", color: "#f59e0b" },
+                  cold: { label: "Cold", color: "#3b82f6" },
+                }}
+                className="h-[220px]"
+              >
                 <PieChart>
-                  <Pie dataKey="value" data={data.leadQualityDistribution} innerRadius={60} outerRadius={90} label />
+                  <Pie dataKey="count" nameKey="quality" data={data.leadQualityDistribution} innerRadius={60} outerRadius={90} label />
                   <ChartTooltip content={<ChartTooltipContent hideLabel />} />
                 </PieChart>
-              </ResponsiveContainer>
+              </ChartContainer>
             </Card>
 
             <Card className="p-4">
