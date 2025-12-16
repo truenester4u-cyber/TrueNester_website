@@ -1,7 +1,7 @@
 import { AnalyticsSnapshot } from "@/types/conversations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Download, RefreshCcw } from "lucide-react";
@@ -88,19 +88,26 @@ export const AnalyticsOverview = ({ data, loading, range, onRangeChange, onRefre
           <div className="space-y-4">
             <Card className="p-4">
               <p className="text-sm font-semibold text-slate-700">Lead Quality Distribution</p>
-              <ChartContainer
-                config={{ 
-                  hot: { label: "Hot", color: "#ef4444" },
-                  warm: { label: "Warm", color: "#f59e0b" },
-                  cold: { label: "Cold", color: "#3b82f6" },
-                }}
-                className="h-[220px]"
-              >
+              <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
-                  <Pie dataKey="count" nameKey="quality" data={data.leadQualityDistribution} innerRadius={60} outerRadius={90} label />
-                  <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+                  <Pie 
+                    dataKey="count" 
+                    nameKey="quality"
+                    data={data.leadQualityDistribution} 
+                    innerRadius={60} 
+                    outerRadius={90} 
+                    label={({ quality, count }) => `${quality}: ${count}`}
+                  >
+                    {data.leadQualityDistribution.map((entry: any, index: number) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={entry.quality === 'hot' ? '#ef4444' : entry.quality === 'warm' ? '#f59e0b' : '#3b82f6'} 
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip />
                 </PieChart>
-              </ChartContainer>
+              </ResponsiveContainer>
             </Card>
 
             <Card className="p-4">
