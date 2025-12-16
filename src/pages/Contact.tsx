@@ -74,121 +74,22 @@ const Contact = () => {
     setLoading(true);
 
     try {
-      const customerId = crypto.randomUUID();
-      const conversationId = crypto.randomUUID();
-      const messageId = crypto.randomUUID();
-      const timestamp = new Date().toISOString();
+      // Call the serverless function to handle the form submission
+      const response = await fetch('/.netlify/functions/submit-contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...formData,
+          phone: formData.phone, // Already includes country code from the form
+        }),
+      });
 
-      // Create conversation in database
-      const { error: conversationError } = await supabase
-        .from("conversations")
-        .insert({
-          id: conversationId,
-          customer_id: customerId,
-          customer_name: formData.fullName,
-          customer_phone: `${formData.countryCode} ${formData.phone}`,
-          customer_email: formData.email,
-          start_time: timestamp,
-          status: "new",
-          lead_score: 60, // Medium priority for contact form submissions
-          lead_quality: "warm",
-          intent: formData.department === "sales" ? "buy" : "general",
-          tags: [formData.department, "contact-form", "general-inquiry"],
-          notes: `Department: ${formData.department}\nSubject: ${formData.subject}`,
-          lead_score_breakdown: {
-            source: "contact-form",
-            department: formData.department,
-            hasEmail: true,
-            hasPhone: true,
-          },
-        });
+      const result = await response.json();
 
-      if (conversationError) throw conversationError;
-
-      // Create the message
-      const { error: messageError } = await supabase
-        .from("chat_messages")
-        .insert({
-          id: messageId,
-          conversation_id: conversationId,
-          sender: "customer",
-          message_text: `**Subject:** ${formData.subject}\n\n**Message:**\n${formData.message}\n\n---\n**Contact Details:**\n- Name: ${formData.fullName}\n- Email: ${formData.email}\n- Phone: ${formData.phone}\n- Department: ${formData.department}`,
-          message_type: "text",
-          timestamp: timestamp,
-          is_read: false,
-          metadata: {
-            source: "contact-form",
-            department: formData.department,
-            subject: formData.subject,
-          },
-        });
-
-      if (messageError) throw messageError;
-
-      // Send to Slack webhook via backend (to avoid CORS issues)
-      const slackWebhookUrl = import.meta.env.VITE_SLACK_WEBHOOK_URL;
-      if (slackWebhookUrl) {
-        try {
-          // Use a simple CORS-friendly fetch with mode: 'no-cors'
-          const response = await fetch(slackWebhookUrl, {
-            method: "POST",
-            mode: "no-cors", // Bypass CORS restrictions
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              text: `🔔 New Contact Form Submission`,
-              blocks: [
-                {
-                  type: "header",
-                  text: {
-                    type: "plain_text",
-                    text: "📬 New Contact Form Message",
-                    emoji: true,
-                  },
-                },
-                {
-                  type: "section",
-                  fields: [
-                    { type: "mrkdwn", text: `*Name:*\n${formData.fullName}` },
-                    { type: "mrkdwn", text: `*Department:*\n${formData.department}` },
-                    { type: "mrkdwn", text: `*Email:*\n${formData.email}` },
-                    { type: "mrkdwn", text: `*Phone:*\n${formData.countryCode} ${formData.phone}` },
-                  ],
-                },
-                {
-                  type: "section",
-                  text: {
-                    type: "mrkdwn",
-                    text: `*Subject:*\n${formData.subject}`,
-                  },
-                },
-                {
-                  type: "section",
-                  text: {
-                    type: "mrkdwn",
-                    text: `*Message:*\n${formData.message}`,
-                  },
-                },
-                {
-                  type: "actions",
-                  elements: [
-                    {
-                      type: "button",
-                      text: {
-                        type: "plain_text",
-                        text: "View in Admin Panel",
-                        emoji: true,
-                      },
-                      url: `${window.location.origin}/admin/conversations`,
-                      style: "primary",
-                    },
-                  ],
-                },
-              ],
-            }),
-          });
-        } catch (slackError) {
-          // Don't fail the form submission if Slack fails
-        }
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to submit form');
       }
 
       toast({

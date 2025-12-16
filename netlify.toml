@@ -7,9 +7,17 @@
   command = "npm run build"
   # Output directory (Vite default)
   publish = "dist"
+  # Directory containing Netlify Functions
+  functions = "netlify/functions"
 
 [build.environment]
   NODE_VERSION = "20"
+  NPM_FLAGS = "--prefix netlify/functions install @supabase/supabase-js node-fetch"
+
+[functions]
+  # Set the Node.js version for functions
+  node_bundler = "esbuild"
+  external_node_modules = ["@supabase/supabase-js"]
 
 # SPA routing - redirect all routes to index.html
 [[redirects]]
@@ -48,6 +56,15 @@
   for = "*.svg"
   [headers.values]
     Cache-Control = "public, max-age=86400"
+
+# Required CORS headers for API requests
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+    Content-Type = "application/json"
 
 [[headers]]
   for = "*.webp"

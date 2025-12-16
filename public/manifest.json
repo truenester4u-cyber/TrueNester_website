@@ -1,0 +1,17 @@
+{
+  "name": "TRUE NESTER - Dubai Premium Properties",
+  "short_name": "TRUE NESTER",
+  "description": "Dubai's premium property agency connecting Indian investors with luxury developer projects",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0abf96",
+  "icons": [
+    {
+      "src": "/truenester-favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

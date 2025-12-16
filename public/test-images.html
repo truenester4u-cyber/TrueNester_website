@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image URL Test - After RLS Fix</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        img { max-width: 200px; height: auto; margin: 10px; border: 2px solid #ddd; }
+        .image-container { display: flex; flex-wrap: wrap; gap: 10px; }
+        .image-item { text-align: center; }
+        .url-display { font-size: 12px; color: #666; word-break: break-all; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Dubai Nest Hub - Image URL Test</h1>
+    <p><strong>Purpose:</strong> Test image URLs after RLS policy fix</p>
+    
+    <div id="status" class="test-result">
+        ⏳ Testing image URLs...
+    </div>
+
+    <h2>Test Results:</h2>
+    <div id="results"></div>
+
+    <h2>Sample Images:</h2>
+    <div id="images" class="image-container"></div>
+
+    <script>
+        // Test different URL patterns that might exist in your database
+        const testPaths = [
+            'property1.jpg',
+            'villa-image-1.jpg',
+            'sell-properties/property1.jpg',
+            'sell-properties/villa-image-1.jpg',
+            'apartment-luxury.png',
+            'penthouse-view.jpg'
+        ];
+
+        async function testImageUrl(path) {
+            // Construct the expected public URL after RLS fix
+            const supabaseUrl = 'jwmbxpqpjxqclfcahwcf.supabase.co'; // Your Supabase URL
+            const publicUrl = `https://${supabaseUrl}/storage/v1/object/public/property-images/${path}`;
+            
+            try {
+                const response = await fetch(publicUrl, { method: 'HEAD' });
+                return {
+                    path,
+                    url: publicUrl,
+                    success: response.ok,
+                    status: response.status,
+                    message: response.ok ? 'Image accessible' : `HTTP ${response.status}`
+                };
+            } catch (error) {
+                return {
+                    path,
+                    url: publicUrl,
+                    success: false,
+                    status: 'Error',
+                    message: error.message
+                };
+            }
+        }
+
+        async function runTests() {
+            const statusDiv = document.getElementById('status');
+            const resultsDiv = document.getElementById('results');
+            const imagesDiv = document.getElementById('images');
+
+            statusDiv.innerHTML = '⏳ Running tests...';
+
+            const results = await Promise.all(testPaths.map(testImageUrl));
+            
+            // Display results
+            let successCount = 0;
+            results.forEach(result => {
+                if (result.success) successCount++;
+                
+                const resultDiv = document.createElement('div');
+                resultDiv.className = `test-result ${result.success ? 'success' : 'error'}`;
+                resultDiv.innerHTML = `
+                    <strong>${result.path}</strong>: ${result.message}
+                    <br><small>URL: ${result.url}</small>
+                `;
+                resultsDiv.appendChild(resultDiv);
+
+                // If successful, show the image
+                if (result.success) {
+                    const imageContainer = document.createElement('div');
+                    imageContainer.className = 'image-item';
+                    
+                    const img = document.createElement('img');
+                    img.src = result.url;
+                    img.alt = result.path;
+                    img.title = result.path;
+                    
+                    const urlDisplay = document.createElement('div');
+                    urlDisplay.className = 'url-display';
+                    urlDisplay.textContent = result.path;
+                    
+                    imageContainer.appendChild(img);
+                    imageContainer.appendChild(urlDisplay);
+                    imagesDiv.appendChild(imageContainer);
+                }
+            });
+
+            // Update status
+            if (successCount > 0) {
+                statusDiv.innerHTML = `✅ RLS Fix Working! ${successCount}/${results.length} images accessible`;
+                statusDiv.className = 'test-result success';
+            } else {
+                statusDiv.innerHTML = `❌ Issue detected. 0/${results.length} images accessible. Please run the SQL fix in Supabase.`;
+                statusDiv.className = 'test-result error';
+            }
+        }
+
+        // Run tests on page load
+        runTests();
+    </script>
+</body>
+</html>
