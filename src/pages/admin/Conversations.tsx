@@ -234,14 +234,15 @@ const ConversationsPage = () => {
           />
 
           <div className="space-y-4">
-            <AnalyticsOverview
+            {/* Temporarily disabled analytics to fix page loading - will re-enable after chart fix */}
+            {/* <AnalyticsOverview
               data={analyticsData}
               loading={analyticsLoading}
               range={analyticsRange}
               onRangeChange={setAnalyticsRange}
               onRefresh={() => refetchAnalytics()}
               onExport={(format) => handleExport(format)}
-            />
+            /> */}
             <NotificationCenter
               notifications={notifications}
               preferences={notificationPrefs}
