@@ -430,18 +430,29 @@ export const adminConversationsApi = {
   },
 
   async exportConversations(payload: { format: "pdf" | "csv" | "xlsx"; filters?: SearchFilters }) {
-    const response = await fetch(buildUrl("/admin/conversations/export"), {
-      method: "POST",
-      headers: getAuthHeaders(),
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to export conversations");
+    // Fetch all conversations matching the filters (no pagination for export)
+    const { data: conversations } = await this.fetchConversations(payload.filters, 1, 10000);
+    
+    // Dynamically import export utilities
+    const { exportConversationsToExcel, exportConversationsToCSV, exportConversationsToPDF } = await import('@/lib/exportUtils');
+    
+    // Export based on format
+    switch (payload.format) {
+      case 'xlsx':
+        exportConversationsToExcel(conversations, 'conversations');
+        break;
+      case 'csv':
+        exportConversationsToCSV(conversations, 'conversations');
+        break;
+      case 'pdf':
+        await exportConversationsToPDF(conversations, 'conversations');
+        break;
+      default:
+        throw new Error(`Unsupported export format: ${payload.format}`);
     }
-
-    const blob = await response.blob();
-    return blob;
+    
+    // Return empty blob for compatibility (actual download happens in export functions)
+    return new Blob();
   },
 
   async searchConversations(query: string, filters?: SearchFilters) {
@@ -495,5 +506,60 @@ export const adminConversationsApi = {
     return () => {
       supabase.removeChannel(channel);
     };
+  },
+
+  async bulkDeleteConversations(ids: string[]) {
+    const { error } = await supabase
+      .from("conversations")
+      .delete()
+      .in("id", ids);
+
+    if (error) throw error;
+  },
+
+  async bulkUpdateConversations(ids: string[], updates: Partial<Conversation>) {
+    const updatePayload: any = {};
+    
+    if (updates.status) updatePayload.status = updates.status;
+    if (updates.leadQuality) updatePayload.lead_quality = updates.leadQuality;
+    if (updates.assignedAgentId) updatePayload.assigned_agent_id = updates.assignedAgentId;
+    if (updates.tags) updatePayload.tags = updates.tags;
+    
+    // For notes, append to existing notes instead of replacing
+    if (updates.notes) {
+      // Fetch existing conversations to append notes
+      const { data: existingConvos } = await supabase
+        .from("conversations")
+        .select("id, notes")
+        .in("id", ids);
+
+      if (existingConvos) {
+        // Update each conversation individually to append notes
+        const updatePromises = existingConvos.map(convo => {
+          const existingNotes = convo.notes || "";
+          const newNotes = existingNotes 
+            ? `${existingNotes}\n\n[Bulk Update ${new Date().toLocaleString()}]\n${updates.notes}`
+            : `[Bulk Update ${new Date().toLocaleString()}]\n${updates.notes}`;
+          
+          return supabase
+            .from("conversations")
+            .update({ ...updatePayload, notes: newNotes })
+            .eq("id", convo.id);
+        });
+
+        const results = await Promise.all(updatePromises);
+        const errors = results.filter(r => r.error);
+        if (errors.length > 0) throw errors[0].error;
+        return;
+      }
+    }
+
+    // If no notes update, do a simple bulk update
+    const { error } = await supabase
+      .from("conversations")
+      .update(updatePayload)
+      .in("id", ids);
+
+    if (error) throw error;
   },
 };

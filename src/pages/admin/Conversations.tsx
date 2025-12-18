@@ -6,6 +6,9 @@ import { ConversationDetail } from "@/components/admin/conversations/Conversatio
 import { AnalyticsOverview } from "@/components/admin/conversations/AnalyticsOverview";
 import { NotificationCenter } from "@/components/admin/conversations/NotificationCenter";
 import { ExportMenu } from "@/components/admin/conversations/ExportMenu";
+import { BulkActionsToolbar } from "@/components/admin/conversations/BulkActionsToolbar";
+import { BulkEditModal, type BulkUpdatePayload } from "@/components/admin/conversations/BulkEditModal";
+import { BulkDeleteDialog } from "@/components/admin/conversations/BulkDeleteDialog";
 import { useConversationFilters } from "@/hooks/useConversationFilters";
 import { adminConversationsApi } from "@/integrations/supabase/adminConversations";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,6 +54,9 @@ const ConversationsPage = () => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [analyticsRange, setAnalyticsRange] = useState("7d");
   const [assignmentOpen, setAssignmentOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   const filterPayload = useMemo(() => ({ ...filters, query }), [filters, query]);
 
@@ -151,17 +157,63 @@ const ConversationsPage = () => {
 
   const handleExport = async (format: "pdf" | "csv" | "xlsx") => {
     try {
-      const blob = await adminConversationsApi.exportConversations({ format, filters: filterPayload });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `conversations-${Date.now()}.${format}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      await adminConversationsApi.exportConversations({ format, filters: filterPayload });
+      toast({ 
+        title: "Export successful", 
+        description: `Conversations exported as ${format.toUpperCase()}` 
+      });
     } catch (error: any) {
       toast({ title: "Export failed", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleToggleSelection = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = (selected: boolean) => {
+    if (selected) {
+      setSelectedIds(conversationsData?.data.map(c => c.id) || []);
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      await adminConversationsApi.bulkDeleteConversations(selectedIds);
+      toast({
+        title: "Success",
+        description: `Deleted ${selectedIds.length} conversation${selectedIds.length !== 1 ? 's' : ''}`,
+      });
+      setSelectedIds([]);
+      refetchConversations();
+    } catch (error: any) {
+      toast({
+        title: "Delete failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkEdit = async (updates: BulkUpdatePayload) => {
+    try {
+      await adminConversationsApi.bulkUpdateConversations(selectedIds, updates);
+      toast({
+        title: "Success",
+        description: `Updated ${selectedIds.length} conversation${selectedIds.length !== 1 ? 's' : ''}`,
+      });
+      setSelectedIds([]);
+      refetchConversations();
+    } catch (error: any) {
+      toast({
+        title: "Update failed",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -231,6 +283,9 @@ const ConversationsPage = () => {
             onPageChange={setPage}
             onSortChange={(sort) => updateFilters({ sort })}
             activeSort={filterPayload.sort ?? "recent"}
+            selectedIds={selectedIds}
+            onToggleSelection={handleToggleSelection}
+            onSelectAll={handleSelectAll}
           />
 
           <div className="space-y-4">
@@ -266,6 +321,27 @@ const ConversationsPage = () => {
           onUpdateNotes={(notes) => handleUpdateField({ notes }, "Notes updated")}
           onUpdateStatus={(status) => handleUpdateField({ status }, "Status updated")}
           onUpdateLeadQuality={(leadQuality) => handleUpdateField({ leadQuality }, "Lead quality updated")}
+        />
+
+        <BulkActionsToolbar
+          selectedCount={selectedIds.length}
+          onBulkEdit={() => setBulkEditOpen(true)}
+          onBulkDelete={() => setBulkDeleteOpen(true)}
+          onClearSelection={() => setSelectedIds([])}
+        />
+
+        <BulkEditModal
+          open={bulkEditOpen}
+          onOpenChange={setBulkEditOpen}
+          selectedCount={selectedIds.length}
+          onConfirm={handleBulkEdit}
+        />
+
+        <BulkDeleteDialog
+          open={bulkDeleteOpen}
+          onOpenChange={setBulkDeleteOpen}
+          selectedCount={selectedIds.length}
+          onConfirm={handleBulkDelete}
         />
       </div>
     </AdminLayout>

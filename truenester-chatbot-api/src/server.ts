@@ -21,6 +21,7 @@ import {
   type ConversationAnalyticsResponse,
   type LeadQuality,
 } from "./types";
+import { notificationService, type NotificationPayload } from "./services/notification-service";
 
 dotenv.config();
 
@@ -51,6 +52,9 @@ const allowedOrigins = [
   "https://bright-torte-7f50cf.netlify.app",
   "https://dubai-nest-hub.netlify.app", // Main production domain
   "https://spectacular-cat-ffb517.netlify.app", // Current Netlify deployment
+  // Vercel domains
+  /^https:\/\/.*\.vercel\.app$/,
+  /^https:\/\/.*-.*\.vercel\.app$/,
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
@@ -59,11 +63,25 @@ app.use(cors({
     // Allow requests with no origin (mobile apps, Postman, etc)
     if (!origin) return callback(null, true);
     
+    // Check exact matches
     if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error(`CORS not allowed for origin: ${origin}`));
+      return callback(null, true);
     }
+    
+    // Check regex patterns (for Vercel domains)
+    for (const pattern of allowedOrigins) {
+      if (pattern instanceof RegExp && pattern.test(origin)) {
+        return callback(null, true);
+      }
+    }
+    
+    // Allow if FRONTEND_URL matches
+    if (process.env.FRONTEND_URL && origin.startsWith(process.env.FRONTEND_URL)) {
+      return callback(null, true);
+    }
+    
+    console.warn(`CORS blocked origin: ${origin}`);
+    callback(new Error(`CORS not allowed for origin: ${origin}`));
   },
   credentials: true,
   methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
@@ -625,8 +643,34 @@ app.get("/health", (_req: Request, res: Response) => {
     status: "ok", 
     timestamp: new Date().toISOString(),
     slackConfigured: !!process.env.SLACK_WEBHOOK_URL,
+    telegramConfigured: !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
+    emailConfigured: !!(process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS),
     port: PORT
   });
+});
+
+app.post("/api/notifications/fallback", async (req: Request, res: Response) => {
+  try {
+    console.log('[NOTIFICATION] Fallback endpoint called from frontend');
+    
+    const payload = req.body as NotificationPayload;
+    
+    const result = await notificationService.sendNotification(payload);
+    
+    if (result.success) {
+      const channels = Object.entries(result.channels)
+        .filter(([_, v]) => v?.success)
+        .map(([k]) => k);
+      console.log(`[NOTIFICATION] ✅ Fallback sent via: ${channels.join(", ")}`);
+      res.json({ success: true, channels });
+    } else {
+      console.error("[NOTIFICATION] ❌ All fallback channels failed");
+      res.status(500).json({ success: false, error: "All notification channels failed" });
+    }
+  } catch (error) {
+    console.error('[NOTIFICATION] Fallback endpoint error:', error);
+    res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+  }
 });
 
 // Test endpoint for Slack notifications with images
@@ -758,20 +802,31 @@ app.post("/api/chatbot/leads", async (req: Request, res: Response) => {
 
     console.log(`[API] ✅ Successfully created conversation ${conversationId} for ${payload.customerName}`);
     
-    // Send Slack notification asynchronously (don't wait for it)
-    console.log(`[API] Triggering Slack notification for conversation ${conversationId}`);
-    sendSlackNotification({
+    console.log(`[API] Triggering multi-channel notification for conversation ${conversationId}`);
+    const notificationPayload: NotificationPayload = {
       customerName: payload.customerName,
       customerEmail: payload.customerEmail,
       customerPhone: payload.customerPhone,
       intent: payload.intent,
       budget: payload.budget,
       propertyType: payload.propertyType,
-      preferredArea: payload.preferredArea,
+      area: payload.preferredArea,
       leadScore: leadScoreValue,
-      durationMinutes: durationMinutes,
-    }, "chatbot").catch((err) => {
-      console.error("[API] ❌ Slack notification error:", err);
+      duration: durationMinutes,
+      source: "chatbot",
+    };
+    
+    notificationService.sendNotification(notificationPayload).then((result) => {
+      if (result.success) {
+        const channels = Object.entries(result.channels)
+          .filter(([_, v]) => v?.success)
+          .map(([k]) => k);
+        console.log(`[NOTIFICATION] ✅ Sent via: ${channels.join(", ")}`);
+      } else {
+        console.error("[NOTIFICATION] ❌ All channels failed");
+      }
+    }).catch((err) => {
+      console.error("[NOTIFICATION] ❌ Notification error:", err);
     });
     
     return res.status(201).json({ id: conversationId, conversation: conversationData });
@@ -781,6 +836,183 @@ app.post("/api/chatbot/leads", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Validation error", details: error.errors });
     }
     console.error("Chatbot leads endpoint error:", error);
+    return res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+  }
+});
+
+// Property Inquiry Form endpoint
+const propertyInquirySchema = z.object({
+  customerName: z.string().min(1),
+  customerEmail: z.string().email().optional(),
+  customerPhone: z.string().optional(),
+  propertyTitle: z.string().optional(),
+  propertyUrl: z.string().url().optional(),
+  message: z.string().optional(),
+  budget: z.string().optional(),
+  propertyType: z.string().optional(),
+});
+
+app.post("/api/property-inquiry", async (req: Request, res: Response) => {
+  try {
+    console.log(`[API] 📥 Received property inquiry from: ${req.ip}`);
+    
+    const payload = propertyInquirySchema.parse(req.body);
+    console.log(`[API] ✅ Property inquiry validation passed for: ${payload.customerName}`);
+    
+    const inquiryId = randomUUID();
+    const nowIso = new Date().toISOString();
+    
+    // Store inquiry in database (you can create a property_inquiries table if needed)
+    console.log(`[API] 📝 Processing property inquiry ${inquiryId} for ${payload.customerName}`);
+    
+    // Send notification
+    const notificationPayload: NotificationPayload = {
+      customerName: payload.customerName,
+      customerEmail: payload.customerEmail,
+      customerPhone: payload.customerPhone,
+      propertyTitle: payload.propertyTitle,
+      propertyUrl: payload.propertyUrl,
+      message: payload.message,
+      budget: payload.budget,
+      propertyType: payload.propertyType,
+      source: "property_inquiry",
+    };
+    
+    notificationService.sendNotification(notificationPayload).then((result) => {
+      if (result.success) {
+        console.log(`[API] ✅ Notification sent successfully for property inquiry ${inquiryId}`);
+      } else {
+        console.error(`[API] ❌ Failed to send notification for property inquiry ${inquiryId}`);
+      }
+    }).catch((error) => {
+      console.error(`[API] ❌ Notification error for property inquiry ${inquiryId}:`, error);
+    });
+    
+    return res.status(201).json({ 
+      success: true, 
+      id: inquiryId,
+      message: "Property inquiry submitted successfully" 
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      console.error("Property inquiry validation error:", error.errors);
+      return res.status(400).json({ error: "Validation error", details: error.errors });
+    }
+    console.error("Property inquiry endpoint error:", error);
+    return res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+  }
+});
+
+// Contact Form endpoint
+const contactFormSchema = z.object({
+  customerName: z.string().min(1),
+  customerEmail: z.string().email().optional(),
+  customerPhone: z.string().optional(),
+  subject: z.string().optional(),
+  message: z.string().min(1),
+  department: z.string().optional(),
+});
+
+app.post("/api/contact", async (req: Request, res: Response) => {
+  try {
+    console.log(`[API] 📥 Received contact form submission from: ${req.ip}`);
+    
+    const payload = contactFormSchema.parse(req.body);
+    console.log(`[API] ✅ Contact form validation passed for: ${payload.customerName}`);
+    
+    const contactId = randomUUID();
+    const nowIso = new Date().toISOString();
+    
+    // Send notification
+    const notificationPayload: NotificationPayload = {
+      customerName: payload.customerName,
+      customerEmail: payload.customerEmail,
+      customerPhone: payload.customerPhone,
+      subject: payload.subject,
+      message: payload.message,
+      department: payload.department,
+      source: "contact_form",
+    };
+    
+    notificationService.sendNotification(notificationPayload).then((result) => {
+      if (result.success) {
+        console.log(`[API] ✅ Notification sent successfully for contact form ${contactId}`);
+      } else {
+        console.error(`[API] ❌ Failed to send notification for contact form ${contactId}`);
+      }
+    }).catch((error) => {
+      console.error(`[API] ❌ Notification error for contact form ${contactId}:`, error);
+    });
+    
+    return res.status(201).json({ 
+      success: true, 
+      id: contactId,
+      message: "Contact form submitted successfully" 
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      console.error("Contact form validation error:", error.errors);
+      return res.status(400).json({ error: "Validation error", details: error.errors });
+    }
+    console.error("Contact form endpoint error:", error);
+    return res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
+  }
+});
+
+// Sell Submission endpoint  
+const sellSubmissionSchema = z.object({
+  customerName: z.string().min(1),
+  customerEmail: z.string().email().optional(),
+  customerPhone: z.string().optional(),
+  propertyType: z.string().optional(),
+  propertyAddress: z.string().optional(),
+  expectedPrice: z.string().optional(),
+  propertyDescription: z.string().optional(),
+  urgency: z.string().optional(),
+});
+
+app.post("/api/sell-submission", async (req: Request, res: Response) => {
+  try {
+    console.log(`[API] 📥 Received sell submission from: ${req.ip}`);
+    
+    const payload = sellSubmissionSchema.parse(req.body);
+    console.log(`[API] ✅ Sell submission validation passed for: ${payload.customerName}`);
+    
+    const submissionId = randomUUID();
+    const nowIso = new Date().toISOString();
+    
+    // Send notification
+    const notificationPayload: NotificationPayload = {
+      customerName: payload.customerName,
+      customerEmail: payload.customerEmail,
+      customerPhone: payload.customerPhone,
+      propertyType: payload.propertyType,
+      message: `Property Address: ${payload.propertyAddress}\nExpected Price: ${payload.expectedPrice}\nDescription: ${payload.propertyDescription}\nUrgency: ${payload.urgency}`,
+      source: "property_inquiry", // Using property_inquiry as base, but we can extend this
+      subject: "Property Sell Submission",
+    };
+    
+    notificationService.sendNotification(notificationPayload).then((result) => {
+      if (result.success) {
+        console.log(`[API] ✅ Notification sent successfully for sell submission ${submissionId}`);
+      } else {
+        console.error(`[API] ❌ Failed to send notification for sell submission ${submissionId}`);
+      }
+    }).catch((error) => {
+      console.error(`[API] ❌ Notification error for sell submission ${submissionId}:`, error);
+    });
+    
+    return res.status(201).json({ 
+      success: true, 
+      id: submissionId,
+      message: "Sell submission received successfully" 
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      console.error("Sell submission validation error:", error.errors);
+      return res.status(400).json({ error: "Validation error", details: error.errors });
+    }
+    console.error("Sell submission endpoint error:", error);
     return res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
   }
 });

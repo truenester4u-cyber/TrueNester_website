@@ -21,6 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { parsePropertyTypes } from "@/lib/utils";
 import { Property } from "@/types/property";
 import { fetchBuyProperties } from "@/lib/supabase-queries";
+import { getAmenityIcon, getAmenityColor } from "@/lib/amenityIcons";
 
 // Helper function to format price in K or M for slider display
 const formatSliderPrice = (value: number): string => {
@@ -1025,6 +1026,27 @@ const Buy = () => {
                                   </div>
                                 )}
                               </div>
+
+                              {/* Amenities Preview */}
+                              {property.amenities && property.amenities.length > 0 && (
+                                <div className="mt-4 pt-4 border-t border-gray-100">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {property.amenities.slice(0, 4).map((amenity: string, idx: number) => {
+                                      const Icon = getAmenityIcon(amenity);
+                                      const colorClass = getAmenityColor(amenity);
+                                      return (
+                                        <div key={idx} className="flex items-center gap-1.5 text-xs bg-gray-50 px-2.5 py-1.5 rounded-md">
+                                          <Icon className={`h-3.5 w-3.5 ${colorClass}`} />
+                                          <span className="text-gray-700 font-medium">{amenity}</span>
+                                        </div>
+                                      );
+                                    })}
+                                    {property.amenities.length > 4 && (
+                                      <span className="text-xs text-muted-foreground font-medium">+{property.amenities.length - 4} more</span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
                             </CardContent>
                           </Link>
                         </Card>

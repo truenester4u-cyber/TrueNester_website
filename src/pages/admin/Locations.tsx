@@ -92,6 +92,7 @@ const Locations = () => {
           UPDATE locations SET city = 'Dubai' WHERE name ILIKE '%Dubai%' AND city IS NULL;
           UPDATE locations SET city = 'Abu Dhabi' WHERE name ILIKE '%Abu Dhabi%' AND city IS NULL;
           UPDATE locations SET city = 'Ras Al Khaimah' WHERE (name ILIKE '%Ras Al Khaimah%' OR name ILIKE '%RAK%') AND city IS NULL;
+          UPDATE locations SET city = 'Umm Al Quwain' WHERE (name ILIKE '%Umm Al Quwain%' OR name ILIKE '%UAQ%') AND city IS NULL;
         `
       });
 
@@ -368,7 +369,8 @@ const Locations = () => {
 CREATE INDEX IF NOT EXISTS idx_locations_city ON locations(city);
 UPDATE locations SET city = 'Dubai' WHERE name ILIKE '%Dubai%' AND city IS NULL;
 UPDATE locations SET city = 'Abu Dhabi' WHERE name ILIKE '%Abu Dhabi%' AND city IS NULL;
-UPDATE locations SET city = 'Ras Al Khaimah' WHERE (name ILIKE '%Ras Al Khaimah%' OR name ILIKE '%RAK%') AND city IS NULL;`}</pre>
+UPDATE locations SET city = 'Ras Al Khaimah' WHERE (name ILIKE '%Ras Al Khaimah%' OR name ILIKE '%RAK%') AND city IS NULL;
+UPDATE locations SET city = 'Umm Al Quwain' WHERE (name ILIKE '%Umm Al Quwain%' OR name ILIKE '%UAQ%') AND city IS NULL;`}</pre>
                 </div>
               </div>
 
@@ -417,6 +419,7 @@ UPDATE locations SET city = 'Ras Al Khaimah' WHERE (name ILIKE '%Ras Al Khaimah%
   const dubaiLocations = locations.filter(loc => loc.city === 'Dubai');
   const abuDhabiLocations = locations.filter(loc => loc.city === 'Abu Dhabi');
   const rakLocations = locations.filter(loc => loc.city === 'Ras Al Khaimah');
+  const uaqLocations = locations.filter(loc => loc.city === 'Umm Al Quwain');
 
   const renderCityCard = (city: string, cityLocations: Location[], emoji: string) => (
     <Card className="overflow-hidden">
@@ -548,7 +551,7 @@ UPDATE locations SET city = 'Ras Al Khaimah' WHERE (name ILIKE '%Ras Al Khaimah%
                 <MapPin className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No locations yet</h3>
                 <p className="text-muted-foreground mb-6">
-                  Start by adding locations for Dubai, Abu Dhabi, or Ras Al Khaimah
+                  Start by adding locations for Dubai, Abu Dhabi, Ras Al Khaimah, or Umm Al Quwain
                 </p>
                 <div className="flex gap-3 justify-center flex-wrap">
                   <Button onClick={() => navigate("/admin/locations/new?city=Dubai")}>
@@ -563,6 +566,10 @@ UPDATE locations SET city = 'Ras Al Khaimah' WHERE (name ILIKE '%Ras Al Khaimah%
                     <Plus className="mr-2 h-4 w-4" />
                     Add RAK Location
                   </Button>
+                  <Button onClick={() => navigate("/admin/locations/new?city=Umm%20Al%20Quwain")} variant="outline">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add UAQ Location
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -572,6 +579,7 @@ UPDATE locations SET city = 'Ras Al Khaimah' WHERE (name ILIKE '%Ras Al Khaimah%
             {renderCityCard("Dubai", dubaiLocations, "🏙️")}
             {renderCityCard("Abu Dhabi", abuDhabiLocations, "🏛️")}
             {renderCityCard("Ras Al Khaimah", rakLocations, "🏔️")}
+            {renderCityCard("Umm Al Quwain", uaqLocations, "🏖️")}
           </div>
         )}
       </div>

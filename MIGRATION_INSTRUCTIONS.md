@@ -1,5 +1,50 @@
 # Database Migration Instructions
 
+## Latest Migrations (Dec 18, 2024)
+
+### 1. Site Settings Table (REQUIRED for Admin Settings Page)
+
+Run this SQL in Supabase Dashboard to create the comprehensive settings table:
+
+**File:** `supabase/migrations/20251218000001_create_site_settings_table.sql`
+
+This creates a complete settings management system with:
+- General site information
+- SEO & Analytics configuration
+- Email/SMTP settings
+- Notification preferences
+- Currency & display options
+- Social media links
+- Branding customization
+- Feature toggles
+
+### 2. Add Umm Al Quwain Support
+
+### Quick Apply - Run This SQL in Supabase Dashboard:
+
+1. Go to your Supabase Dashboard SQL Editor
+2. Copy and paste the following SQL:
+
+```sql
+-- Add featured_umm_al_quwain column to properties table
+ALTER TABLE public.properties 
+ADD COLUMN IF NOT EXISTS featured_umm_al_quwain BOOLEAN DEFAULT false NOT NULL;
+
+-- Create an index for better query performance
+CREATE INDEX IF NOT EXISTS idx_properties_featured_umm_al_quwain 
+ON public.properties(featured_umm_al_quwain) 
+WHERE featured_umm_al_quwain = true;
+
+-- Add comment for documentation
+COMMENT ON COLUMN public.properties.featured_umm_al_quwain IS 'Flag to mark property as featured in Umm Al Quwain homepage section';
+```
+
+3. Click **Run** to execute
+
+**OR** use the migration file: `supabase/migrations/20251218000000_add_featured_umm_al_quwain.sql`
+
+---
+
 ## Apply the Properties Table Migration
 
 Since you're using a hosted Supabase instance, follow these steps to apply the migration:

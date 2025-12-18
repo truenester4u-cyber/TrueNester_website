@@ -315,6 +315,34 @@ const Sell = () => {
         console.warn("[SELL] No Slack webhook URL configured - skipping notification");
       }
 
+      // Step 5: Send email notification via backend API
+      console.log("[SELL] Step 5: Sending email notification...");
+      const adminApiUrl = import.meta.env.VITE_ADMIN_API_URL || "http://localhost:4000/api";
+      const apiUrl = adminApiUrl.endsWith('/api') ? adminApiUrl : `${adminApiUrl}/api`;
+      
+      fetch(`${apiUrl}/sell-submission`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerName: formData.fullName,
+          customerEmail: formData.email,
+          customerPhone: formData.phone,
+          propertyType: formData.propertyType,
+          propertyAddress: `${formData.location}, ${formData.bedrooms} bedrooms, ${formData.size} sqft`,
+          expectedPrice: formData.expectedPrice || "Not specified",
+          propertyDescription: formData.details || "No additional details",
+          urgency: "Standard",
+        }),
+      }).then(res => {
+        if (res.ok) {
+          console.log("[SELL] ✅ Email notification sent");
+        } else {
+          console.warn("[SELL] Email notification failed:", res.status);
+        }
+      }).catch(err => {
+        console.warn("[SELL] Email notification error:", err);
+      });
+
       console.log("[SELL] ✅ Submission completed successfully!");
       toast({
         title: "Request submitted",

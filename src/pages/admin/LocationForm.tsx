@@ -285,6 +285,7 @@ const LocationForm = () => {
                     <SelectItem value="Dubai">🏙️ Dubai</SelectItem>
                     <SelectItem value="Abu Dhabi">🏛️ Abu Dhabi</SelectItem>
                     <SelectItem value="Ras Al Khaimah">🏔️ Ras Al Khaimah</SelectItem>
+                    <SelectItem value="Umm Al Quwain">🏖️ Umm Al Quwain</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-sm text-muted-foreground">

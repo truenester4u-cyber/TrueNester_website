@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { GripVertical, Loader2, Upload, X } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { AdvancedRichTextEditor } from "@/components/admin/AdvancedRichTextEditor";
+import { AmenityIconPicker } from "@/components/admin/AmenityIconPicker";
 import { parsePropertyTypes } from "@/lib/utils";
 
 interface PropertyFormData {
@@ -54,6 +55,7 @@ interface PropertyFormData {
   featured_dubai: boolean;
   featured_abu_dhabi: boolean;
   featured_ras_al_khaimah: boolean;
+  featured_umm_al_quwain: boolean;
   published: boolean;
   payment_plan: string;
   handover_date: string;
@@ -139,6 +141,7 @@ const PropertyForm = () => {
     featured_dubai: false,
     featured_abu_dhabi: false,
     featured_ras_al_khaimah: false,
+    featured_umm_al_quwain: false,
     published: false,
     payment_plan: "",
     handover_date: "",
@@ -222,6 +225,7 @@ const PropertyForm = () => {
           featured_dubai: propertyData.featured_dubai || false,
           featured_abu_dhabi: propertyData.featured_abu_dhabi || false,
           featured_ras_al_khaimah: propertyData.featured_ras_al_khaimah || false,
+          featured_umm_al_quwain: propertyData.featured_umm_al_quwain || false,
           published: propertyData.published || false,
           payment_plan: propertyData.payment_plan || "",
           handover_date: propertyData.handover_date || "",
@@ -416,13 +420,16 @@ const PropertyForm = () => {
     }));
   };
 
-  const addAmenity = () => {
-    if (newAmenity.trim()) {
+  const addAmenity = (amenity?: string) => {
+    const amenityToAdd = amenity || newAmenity;
+    if (amenityToAdd.trim()) {
       setFormData((prev) => ({
         ...prev,
-        amenities: [...prev.amenities, newAmenity.trim()],
+        amenities: [...prev.amenities, amenityToAdd.trim()],
       }));
-      setNewAmenity("");
+      if (!amenity) {
+        setNewAmenity("");
+      }
     }
   };
 
@@ -605,6 +612,7 @@ const PropertyForm = () => {
         featured_dubai: formData.featured_dubai,
         featured_abu_dhabi: formData.featured_abu_dhabi,
         featured_ras_al_khaimah: formData.featured_ras_al_khaimah,
+        featured_umm_al_quwain: formData.featured_umm_al_quwain,
         published: formData.published,
         payment_plan: formData.payment_plan || null,
         handover_date: formData.handover_date || null,
@@ -845,7 +853,8 @@ const PropertyForm = () => {
                     <SelectContent>
                       <SelectItem value="Dubai">Dubai</SelectItem>
                       <SelectItem value="Abu Dhabi">Abu Dhabi</SelectItem>
-                      <SelectItem value="RAS AL KHAIMA">RAS AL KHAIMA</SelectItem>
+                      <SelectItem value="Ras Al Khaimah">Ras Al Khaimah</SelectItem>
+                      <SelectItem value="Umm Al Quwain">Umm Al Quwain</SelectItem>
                       <SelectItem value="Ajman">Ajman</SelectItem>
                       <SelectItem value="Fujairah">Fujairah</SelectItem>
                       <SelectItem value="Sharjah">Sharjah</SelectItem>
@@ -1312,34 +1321,14 @@ const PropertyForm = () => {
 
               <div>
                 <Label>Amenities</Label>
-                <div className="flex gap-2 mt-2">
-                  <Input
-                    value={newAmenity}
-                    onChange={(e) => setNewAmenity(e.target.value)}
-                    placeholder="Add an amenity"
-                    onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addAmenity())}
-                  />
-                  <Button type="button" onClick={addAmenity}>
-                    Add
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.amenities.map((amenity, index) => (
-                    <span
-                      key={index}
-                      className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm"
-                    >
-                      {amenity}
-                      <button
-                        type="button"
-                        onClick={() => removeAmenity(index)}
-                        className="hover:text-green-600"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Select amenities with icons from the predefined list or add custom ones
+                </p>
+                <AmenityIconPicker
+                  onSelect={addAmenity}
+                  selectedAmenities={formData.amenities}
+                  onRemove={removeAmenity}
+                />
               </div>
             </CardContent>
           </Card>
@@ -1756,6 +1745,14 @@ const PropertyForm = () => {
                     id="featured_ras_al_khaimah"
                     checked={formData.featured_ras_al_khaimah}
                     onCheckedChange={(checked) => handleInputChange("featured_ras_al_khaimah", checked)}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="featured_umm_al_quwain">Featured in Umm Al Quwain</Label>
+                  <Switch
+                    id="featured_umm_al_quwain"
+                    checked={formData.featured_umm_al_quwain}
+                    onCheckedChange={(checked) => handleInputChange("featured_umm_al_quwain", checked)}
                   />
                 </div>
               </div>

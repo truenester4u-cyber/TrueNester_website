@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Property } from "@/types/property";
 import { fetchFeaturedProperties } from "@/lib/supabase-queries";
 import { getSafeImageUrl, getSafeImageUrls, handleImageError, PLACEHOLDER_IMAGE } from "@/lib/imageUtils";
+import { getAmenityIcon, getAmenityColor } from "@/lib/amenityIcons";
 type FeaturedFlag = "featured_dubai" | "featured_abu_dhabi" | "featured_ras_al_khaimah";
 
 const PLACEHOLDER_IMAGE_FALLBACK = "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop";
@@ -275,6 +276,27 @@ const FeaturedProperties = () => {
                 ) : null;
               })()}
             </div>
+
+            {/* Amenities Preview */}
+            {property.amenities && property.amenities.length > 0 && (
+              <div className="mt-3 pt-3 border-t">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {property.amenities.slice(0, 4).map((amenity: string, idx: number) => {
+                    const Icon = getAmenityIcon(amenity);
+                    const colorClass = getAmenityColor(amenity);
+                    return (
+                      <div key={idx} className="flex items-center gap-1.5 text-xs bg-gray-50 px-2 py-1 rounded-md">
+                        <Icon className={`h-3.5 w-3.5 ${colorClass}`} />
+                        <span className="text-gray-700 font-medium">{amenity}</span>
+                      </div>
+                    );
+                  })}
+                  {property.amenities.length > 4 && (
+                    <span className="text-xs text-muted-foreground font-medium">+{property.amenities.length - 4} more</span>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="mt-4 flex gap-2">
               <Button className="flex-1 bg-primary hover:bg-primary-dark text-white">View Details</Button>

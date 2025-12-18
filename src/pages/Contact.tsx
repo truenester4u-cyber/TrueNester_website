@@ -13,7 +13,8 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Mail, MapPin, Phone, Clock, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { insertConversation } from "@/lib/supabase-queries";
+import { sendMultiChannelNotification } from "@/lib/notifications";
 
 interface ContactFormData {
   fullName: string;
@@ -74,23 +75,37 @@ const Contact = () => {
     setLoading(true);
 
     try {
-      // Call the serverless function to handle the form submission
-      const response = await fetch('/.netlify/functions/submit-contact', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          phone: formData.phone, // Already includes country code from the form
-        }),
+      const conversationId = crypto.randomUUID();
+      const now = new Date().toISOString();
+      
+      // Create conversation object
+      const conversation = {
+        id: conversationId,
+        customer_name: formData.fullName,
+        customer_email: formData.email,
+        customer_phone: `${formData.countryCode} ${formData.phone}`,
+        customer_id: `contact-form-${conversationId}`,
+        start_time: now,
+        status: "new" as const,
+        lead_score: 60,
+        tags: ["contact-form", formData.department, "general-inquiry"],
+        notes: `Subject: ${formData.subject}\n\n${formData.message}`,
+      };
+
+      // Insert conversation into database
+      await insertConversation(conversation);
+
+      await sendMultiChannelNotification({
+        customerName: formData.fullName,
+        customerEmail: formData.email,
+        customerPhone: `${formData.countryCode} ${formData.phone}`,
+        source: "contact_form",
+        subject: formData.subject,
+        message: formData.message,
+        department: formData.department,
+      }).catch((error) => {
+        console.warn('Notification failed (non-critical):', error);
       });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to submit form');
-      }
 
       toast({
         title: "Message Sent Successfully! 🎉",
@@ -107,10 +122,12 @@ const Contact = () => {
         subject: "",
         message: "",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      console.error('Contact form submission error:', error);
+      const errorMessage = error instanceof Error ? error.message : "Something went wrong. Please try again or call us directly.";
       toast({
         title: "Submission Failed",
-        description: error.message || "Something went wrong. Please try again or call us directly.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

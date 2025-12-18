@@ -3,6 +3,7 @@ import { ConversationCard } from "./ConversationCard";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useMemo } from "react";
 
 interface ConversationListProps {
@@ -19,6 +20,9 @@ interface ConversationListProps {
   onPageChange: (page: number) => void;
   onSortChange: (sort: string) => void;
   activeSort: string;
+  selectedIds?: string[];
+  onToggleSelection?: (id: string) => void;
+  onSelectAll?: (selected: boolean) => void;
 }
 
 const sortTabs = [
@@ -41,15 +45,34 @@ export const ConversationList = ({
   onPageChange,
   onSortChange,
   activeSort,
+  selectedIds = [],
+  onToggleSelection,
+  onSelectAll,
 }: ConversationListProps) => {
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [total, pageSize]);
+  const allSelected = conversations.length > 0 && conversations.every(c => selectedIds.includes(c.id));
+  const someSelected = selectedIds.length > 0 && !allSelected;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs uppercase text-slate-400">Conversations</p>
-          <p className="text-2xl font-bold text-slate-900">{total.toLocaleString()} total</p>
+        <div className="flex items-center gap-3">
+          {onSelectAll && (
+            <Checkbox
+              checked={allSelected}
+              onCheckedChange={(checked) => onSelectAll(!!checked)}
+              className="data-[state=indeterminate]:bg-primary"
+              ref={(el) => {
+                if (el && someSelected && !allSelected) {
+                  el.dataset.state = 'indeterminate';
+                }
+              }}
+            />
+          )}
+          <div>
+            <p className="text-xs uppercase text-slate-400">Conversations</p>
+            <p className="text-2xl font-bold text-slate-900">{total.toLocaleString()} total</p>
+          </div>
         </div>
         <Tabs value={activeSort} onValueChange={onSortChange} className="hidden lg:block">
           <TabsList>
@@ -75,15 +98,25 @@ export const ConversationList = ({
       ) : (
         <div className="space-y-3">
           {conversations.map((conversation) => (
-            <ConversationCard
-              key={conversation.id}
-              conversation={conversation}
-              isActive={conversation.id === selectedConversationId}
-              onSelect={() => onSelect(conversation)}
-              onAssign={onAssign}
-              onFollowUp={onFollowUp}
-              onNotes={onNotes}
-            />
+            <div key={conversation.id} className="flex items-start gap-3">
+              {onToggleSelection && (
+                <Checkbox
+                  checked={selectedIds.includes(conversation.id)}
+                  onCheckedChange={() => onToggleSelection(conversation.id)}
+                  className="mt-4"
+                />
+              )}
+              <div className="flex-1">
+                <ConversationCard
+                  conversation={conversation}
+                  isActive={conversation.id === selectedConversationId}
+                  onSelect={() => onSelect(conversation)}
+                  onAssign={onAssign}
+                  onFollowUp={onFollowUp}
+                  onNotes={onNotes}
+                />
+              </div>
+            </div>
           ))}
         </div>
       )}

@@ -20,6 +20,7 @@ import { useAuth } from "@/contexts/AuthContext.v2";
 import { useToast } from "@/hooks/use-toast";
 import { useIsPropertySaved, useToggleSaveProperty } from "@/hooks/useSavedProperties";
 import { useCreateInquiry } from "@/hooks/useCustomerInquiries";
+import { sendMultiChannelNotification } from "@/lib/notifications";
 
 const countryCodes = [
   { label: "+971", country: "UAE", flag: "🇦🇪" },
@@ -447,9 +448,9 @@ const PropertyDetail = () => {
                   {/* Image Gallery - Mobile Swipeable / Desktop Grid */}
                   <div className="relative">
                     {/* Mobile Swipeable Gallery */}
-                    <div className="block lg:hidden">
+                    <div className="block lg:hidden -mx-4 sm:-mx-6">
                       <div 
-                        className="relative w-full overflow-hidden rounded-xl"
+                        className="relative w-full overflow-hidden"
                         style={{ aspectRatio: '4/3' }}
                         onTouchStart={onTouchStart}
                         onTouchMove={onTouchMove}
@@ -461,20 +462,20 @@ const PropertyDetail = () => {
                           style={{ transform: `translateX(-${mobileImageIndex * 100}%)` }}
                         >
                           {images.length > 0 ? images.map((img, idx) => (
-                            <div key={idx} className="min-w-full h-full relative flex-shrink-0 bg-black">
+                            <div key={idx} className="min-w-full h-full relative flex-shrink-0">
                               <img 
                                 src={img || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop"} 
                                 alt={`${property.title} - ${idx + 1}`}
-                                className="w-full h-full object-contain"
+                                className="w-full h-full object-cover"
                                 onClick={() => openLightbox(idx)}
                               />
                             </div>
                           )) : (
-                            <div className="min-w-full h-full relative flex-shrink-0 bg-black">
+                            <div className="min-w-full h-full relative flex-shrink-0">
                               <img 
                                 src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop"
                                 alt={property.title}
-                                className="w-full h-full object-contain"
+                                className="w-full h-full object-cover"
                                 onClick={() => openLightbox(0)}
                               />
                             </div>
@@ -1348,86 +1349,18 @@ const PropertyDetail = () => {
                                 });
                               }
                               
-                              // Send to Slack webhook for property inquiry
-                              const slackWebhookUrl = import.meta.env.VITE_SLACK_WEBHOOK_URL;
-                              if (slackWebhookUrl) {
-                                try {
-                                  console.log("Sending property inquiry to Slack...");
-                                  await fetch(slackWebhookUrl, {
-                                    method: "POST",
-                                    mode: "no-cors",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({
-                                      text: `🏠 New Property Inquiry`,
-                                      blocks: [
-                                        {
-                                          type: "header",
-                                          text: {
-                                            type: "plain_text",
-                                            text: "🏠 New Property Inquiry",
-                                            emoji: true,
-                                          },
-                                        },
-                                        {
-                                          type: "section",
-                                          fields: [
-                                            { type: "mrkdwn", text: `*Name:*\n${formData.name}` },
-                                            { type: "mrkdwn", text: `*Property:*\n${property.title}` },
-                                            { type: "mrkdwn", text: `*Email:*\n${formData.email}` },
-                                            { type: "mrkdwn", text: `*Phone:*\n${formData.countryCode} ${formData.phone}` },
-                                          ],
-                                        },
-                                        {
-                                          type: "section",
-                                          text: {
-                                            type: "mrkdwn",
-                                            text: `*Message:*\n${formData.message || "No message provided"}`,
-                                          },
-                                        },
-                                        {
-                                          type: "actions",
-                                          elements: [
-                                            {
-                                              type: "button",
-                                              text: {
-                                                type: "plain_text",
-                                                text: "View Property",
-                                                emoji: true,
-                                              },
-                                              url: window.location.href,
-                                              style: "primary",
-                                            },
-                                            {
-                                              type: "button",
-                                              text: {
-                                                type: "plain_text",
-                                                text: "View in Admin",
-                                              },
-                                              url: `${window.location.origin}/admin/conversations`,
-                                            },
-                                          ],
-                                        },
-                                      ],
-                                    }),
-                                  });
-                                  console.log("Property inquiry sent to Slack");
-                                } catch (slackError) {
-                                  console.warn("Failed to send property inquiry to Slack:", slackError);
-                                  // Don't fail the form submission if Slack fails
-                                }
-                              }
-                              
-                              // Send email notification via Edge Function (runs in background)
-                              supabase.functions.invoke('send-inquiry-email', {
-                                body: {
-                                  customerName: formData.name,
-                                  customerEmail: formData.email,
-                                  customerPhone: formData.phone,
-                                  propertyTitle: property.title,
-                                  propertyUrl: window.location.href,
-                                  message: formData.message || ''
-                                }
-                              }).catch(err => console.log('Email notification error:', err));
+                              // Send multi-channel notification (Slack + Telegram + Email)
+                              await sendMultiChannelNotification({
+                                customerName: formData.name,
+                                customerEmail: formData.email,
+                                customerPhone: `${formData.countryCode} ${formData.phone}`,
+                                source: "property_inquiry",
+                                propertyTitle: property.title,
+                                propertyUrl: window.location.href,
+                                message: formData.message || `Interested in property: ${property.title}`,
+                              }).catch((error) => {
+                                console.warn('Notification failed (non-critical):', error);
+                              });
                               
                               setFormSubmitted(true);
                               setFormData({
