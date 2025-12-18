@@ -10,7 +10,7 @@ import type {
   SearchFilters,
 } from "@/types/conversations";
 
-const API_BASE_URL = (import.meta.env.VITE_ADMIN_API_URL ?? "/api").replace(/\/$/, "");
+const API_BASE_URL = (import.meta.env.VITE_ADMIN_API_URL ?? "/api").replace(/^["']|["']$/g, '').trim().replace(/\/$/, "");
 const hasAdminApi = Boolean(import.meta.env.VITE_ADMIN_API_URL);
 const ADMIN_API_KEY = "TrueNester2025_AdminAPI_SecureKey_Dubai_Development_Production_v1";
 

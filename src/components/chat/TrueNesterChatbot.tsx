@@ -113,7 +113,7 @@ const MAX_POPUP_SHOWS = 3;
 const createId = () => globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
 
 const rawChatbotApiBase = import.meta.env.VITE_CHATBOT_API_URL || import.meta.env.VITE_ADMIN_API_URL || "/api";
-const CHATBOT_API_BASE = rawChatbotApiBase.replace(/\/$/, "");
+const CHATBOT_API_BASE = rawChatbotApiBase.replace(/^["']|["']$/g, '').trim().replace(/\/$/, "");
 const CHATBOT_LEAD_ENDPOINT = `${CHATBOT_API_BASE}/chatbot/leads`;
 
 const communityInsights = [
