@@ -13,7 +13,8 @@ interface EmailNotificationPayload {
 export const sendMultiChannelNotification = async (
   payload: EmailNotificationPayload
 ): Promise<{ success: boolean }> => {
-  const adminApiUrl = import.meta.env.VITE_ADMIN_API_URL || "http://localhost:4000/api";
+  const rawApiUrl = import.meta.env.VITE_ADMIN_API_URL || "http://localhost:4000";
+  const adminApiUrl = rawApiUrl.replace(/^["']|["']$/g, '').trim();
   
   const endpoint = payload.source === "contact_form" ? "/contact" : "/property-inquiry";
   const apiUrl = adminApiUrl.endsWith('/api') ? adminApiUrl : `${adminApiUrl}/api`;

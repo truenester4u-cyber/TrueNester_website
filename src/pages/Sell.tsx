@@ -317,7 +317,8 @@ const Sell = () => {
 
       // Step 5: Send email notification via backend API
       console.log("[SELL] Step 5: Sending email notification...");
-      const adminApiUrl = import.meta.env.VITE_ADMIN_API_URL || "http://localhost:4000/api";
+      const rawAdminApiUrl = import.meta.env.VITE_ADMIN_API_URL || "http://localhost:4000";
+      const adminApiUrl = rawAdminApiUrl.replace(/^["']|["']$/g, '').trim();
       const apiUrl = adminApiUrl.endsWith('/api') ? adminApiUrl : `${adminApiUrl}/api`;
       
       fetch(`${apiUrl}/sell-submission`, {
