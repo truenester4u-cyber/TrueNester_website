@@ -3,6 +3,7 @@ import { MessageCircle, Send, X } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { fetchRentalProperties, insertConversation, insertChatMessages, queryProperties } from "@/lib/supabase-queries";
 import { getSignedImageUrl } from "@/lib/image-utils";
+import { getChatbotLeadsEndpoint } from "@/lib/api-config";
 
 interface ChatMessage {
   id: string;
@@ -112,9 +113,8 @@ const MAX_POPUP_SHOWS = 3;
 
 const createId = () => globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
 
-const rawChatbotApiBase = import.meta.env.VITE_CHATBOT_API_URL || import.meta.env.VITE_ADMIN_API_URL || "/api";
-const CHATBOT_API_BASE = rawChatbotApiBase.replace(/^["']|["']$/g, '').trim().replace(/\/$/, "");
-const CHATBOT_LEAD_ENDPOINT = `${CHATBOT_API_BASE}/chatbot/leads`;
+// Use centralized API config for production/development auto-detection
+const CHATBOT_LEAD_ENDPOINT = getChatbotLeadsEndpoint();
 
 const communityInsights = [
   {

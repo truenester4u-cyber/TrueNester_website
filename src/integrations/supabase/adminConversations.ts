@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getApiBaseUrl } from "@/lib/api-config";
 import type {
   AnalyticsSnapshot,
   ChatMessage,
@@ -10,8 +11,9 @@ import type {
   SearchFilters,
 } from "@/types/conversations";
 
-const API_BASE_URL = (import.meta.env.VITE_ADMIN_API_URL ?? "/api").replace(/^["']|["']$/g, '').trim().replace(/\/$/, "");
-const hasAdminApi = Boolean(import.meta.env.VITE_ADMIN_API_URL);
+// Use centralized API config for production/development auto-detection
+const API_BASE_URL = getApiBaseUrl();
+const hasAdminApi = !API_BASE_URL.includes('localhost') || Boolean(import.meta.env.VITE_ADMIN_API_URL);
 const ADMIN_API_KEY = "TrueNester2025_AdminAPI_SecureKey_Dubai_Development_Production_v1";
 
 const getAuthHeaders = () => ({

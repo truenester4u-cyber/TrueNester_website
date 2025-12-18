@@ -1,3 +1,5 @@
+import { getContactEndpoint, getPropertyInquiryEndpoint } from "@/lib/api-config";
+
 interface EmailNotificationPayload {
   customerName: string;
   customerEmail?: string;
@@ -13,12 +15,10 @@ interface EmailNotificationPayload {
 export const sendMultiChannelNotification = async (
   payload: EmailNotificationPayload
 ): Promise<{ success: boolean }> => {
-  const rawApiUrl = import.meta.env.VITE_ADMIN_API_URL || "http://localhost:4000";
-  const adminApiUrl = rawApiUrl.replace(/^["']|["']$/g, '').trim();
-  
-  const endpoint = payload.source === "contact_form" ? "/contact" : "/property-inquiry";
-  const apiUrl = adminApiUrl.endsWith('/api') ? adminApiUrl : `${adminApiUrl}/api`;
-  const fullUrl = `${apiUrl}${endpoint}`;
+  // Use centralized API config for production/development auto-detection
+  const fullUrl = payload.source === "contact_form" 
+    ? getContactEndpoint() 
+    : getPropertyInquiryEndpoint();
 
   try {
     console.log(`[NOTIFICATION] Sending to backend API: ${fullUrl}`);

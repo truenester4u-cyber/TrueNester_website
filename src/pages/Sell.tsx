@@ -14,6 +14,7 @@ import { CheckCircle, Loader2, Upload, X } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { getSellPropertyEndpoint } from "@/lib/api-config";
 
 type ValuationFormData = {
   fullName: string;
@@ -315,13 +316,12 @@ const Sell = () => {
         console.warn("[SELL] No Slack webhook URL configured - skipping notification");
       }
 
-      // Step 5: Send email notification via backend API
+      // Step 5: Send email notification via backend API (uses centralized config for production/dev auto-detection)
       console.log("[SELL] Step 5: Sending email notification...");
-      const rawAdminApiUrl = import.meta.env.VITE_ADMIN_API_URL || "http://localhost:4000";
-      const adminApiUrl = rawAdminApiUrl.replace(/^["']|["']$/g, '').trim();
-      const apiUrl = adminApiUrl.endsWith('/api') ? adminApiUrl : `${adminApiUrl}/api`;
+      const sellEndpoint = getSellPropertyEndpoint();
+      console.log(`[SELL] Using API endpoint: ${sellEndpoint}`);
       
-      fetch(`${apiUrl}/sell-submission`, {
+      fetch(sellEndpoint.replace('/sell-property', '/sell-submission'), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
