@@ -1392,7 +1392,7 @@ const TrueNesterChatbot = () => {
         // Fallback: Save directly to Supabase if API failed after all retries
         try {
           console.log("[CHATBOT] 🔄 All API attempts failed, falling back to direct Supabase save...");
-          const conversation = await insertConversation({
+          const conversationData = await insertConversation({
             customer_id: payload.customerId,
             customer_name: finalLead.name,
             customer_phone: finalLead.phone,
@@ -1412,9 +1412,11 @@ const TrueNesterChatbot = () => {
             },
           });
 
+          const newConversation = conversationData[0];
+
           // Save messages
           const messagesToSave = payload.messages.map((msg) => ({
-            conversation_id: payload.conversationId,
+            conversation_id: newConversation.id,
             sender: msg.sender,
             message_text: msg.messageText,
             message_type: msg.messageType,
@@ -1427,7 +1429,7 @@ const TrueNesterChatbot = () => {
           console.log("[CHATBOT] ✅ Fallback save completed - conversation preserved in database");
 
           setSubmissionCount(prev => prev + 1);
-          setSubmittedConversations(prev => [...prev, conversation.id]);
+          setSubmittedConversations(prev => [...prev, newConversation.id]);
           setLeadSyncStatus("success");
           
           const remainingSubmissions = MAX_SUBMISSIONS - (submissionCount + 1);
@@ -1453,23 +1455,6 @@ const TrueNesterChatbot = () => {
         } catch (fallbackError) {
           console.error("[CHATBOT] ❌ Supabase fallback also failed:", fallbackError);
           setLeadSyncStatus("error");
-          
-          // Even if everything fails, try one final Slack notification to alert the team
-          try {
-            const emergencySlack = import.meta.env.VITE_SLACK_WEBHOOK_URL;
-            if (emergencySlack) {
-              await fetch(emergencySlack, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  text: `🚨 URGENT: Chatbot lead capture FAILED completely! Manual intervention needed.\nLead: ${finalLead.name} (${finalLead.phone}) - All systems down!`
-                })
-              });
-              console.log("[CHATBOT] 🚨 Emergency Slack alert sent!");
-            }
-          } catch (emergencyError) {
-            console.error("[CHATBOT] ❌ Even emergency Slack failed:", emergencyError);
-          }
           
           appendBotMessage(
             "⚠️ I'm experiencing technical difficulties saving your inquiry. Don't worry - I've captured your details and our technical team has been alerted. You can also reach us directly at +971 4 123 4567 or info@truenester.com for immediate assistance.",
