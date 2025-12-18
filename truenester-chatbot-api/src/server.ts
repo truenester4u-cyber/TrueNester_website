@@ -52,9 +52,12 @@ const allowedOrigins = [
   "https://bright-torte-7f50cf.netlify.app",
   "https://dubai-nest-hub.netlify.app", // Main production domain
   "https://spectacular-cat-ffb517.netlify.app", // Current Netlify deployment
-  // Vercel domains
+  // Vercel domains - explicit domain from env var
+  "https://dubai-nest-hub-f3c99d5902f9f02eb444a8cf6bae253c0a7b8ead.vercel.app",
+  // Vercel domains - regex patterns
   /^https:\/\/.*\.vercel\.app$/,
   /^https:\/\/.*-.*\.vercel\.app$/,
+  /^https:\/\/dubai-nest-hub-.*\.vercel\.app$/,
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
