@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: TrueNester_api
+    env: node
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: truenester-chatbot-api
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
