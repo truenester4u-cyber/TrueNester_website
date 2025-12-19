@@ -63,17 +63,38 @@ class NotificationService {
     }
 
     if (process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      // Clean the host value to remove any extra spaces or quotes
+      const cleanHost = process.env.EMAIL_HOST.trim().replace(/['"]/g, '');
+      const cleanUser = process.env.EMAIL_USER.trim().replace(/['"]/g, '');
+      const cleanPass = process.env.EMAIL_PASS.trim();
+      
       this.emailTransporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST,
+        host: cleanHost,
         port: Number(process.env.EMAIL_PORT || 587),
         secure: process.env.EMAIL_SECURE === "true",
         auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
+          user: cleanUser,
+          pass: cleanPass,
         },
+        connectionTimeout: 10000, // 10 second connection timeout
+        greetingTimeout: 10000,   // 10 second greeting timeout
+        socketTimeout: 30000,     // 30 second socket timeout
+        logger: true,             // Enable logging
+        debug: true,              // Enable debug output
       });
+      
       console.log("[EMAIL] ✅ Email transporter initialized successfully");
-      console.log(`[EMAIL] Config: Host=${process.env.EMAIL_HOST}, Port=${process.env.EMAIL_PORT || 587}, User=${process.env.EMAIL_USER}`);
+      console.log(`[EMAIL] Config: Host=${cleanHost}, Port=${process.env.EMAIL_PORT || 587}, User=${cleanUser}`);
+      
+      // Verify the connection on startup
+      this.emailTransporter.verify((error, success) => {
+        if (error) {
+          console.error("[EMAIL] ❌ SMTP connection verification failed:", error.message);
+          console.error("[EMAIL] Full verification error:", error);
+        } else {
+          console.log("[EMAIL] ✅ SMTP connection verified successfully - ready to send emails");
+        }
+      });
     } else {
       console.log("[EMAIL] ❌ Email not configured - missing HOST, USER, or PASS");
       console.log(`[EMAIL] Debug: HOST=${process.env.EMAIL_HOST}, USER=${process.env.EMAIL_USER}, PASS=${process.env.EMAIL_PASS ? "set" : "missing"}`);
