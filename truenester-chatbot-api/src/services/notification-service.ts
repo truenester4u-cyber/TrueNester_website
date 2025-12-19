@@ -2,6 +2,7 @@ import "dotenv/config";
 import TelegramBot from "node-telegram-bot-api";
 import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
+import { Resend } from "resend";
 
 export interface NotificationPayload {
   customerName: string;
@@ -33,9 +34,11 @@ export interface NotificationResult {
 class NotificationService {
   private telegramBot: TelegramBot | null = null;
   private emailTransporter: Transporter | null = null;
+  private resend: Resend | null = null;
   private slackWebhookUrl: string | undefined;
   private telegramChatId: string | undefined;
   private frontendUrl: string;
+  private useResend: boolean = false;
 
   constructor() {
     // Log all notification-related env vars at startup for debugging
@@ -49,6 +52,7 @@ class NotificationService {
     console.log(`[NOTIFICATION-SERVICE] EMAIL_FROM: ${process.env.EMAIL_FROM || "NOT SET"}`);
     console.log(`[NOTIFICATION-SERVICE] TELEGRAM_BOT_TOKEN: ${process.env.TELEGRAM_BOT_TOKEN ? "SET" : "NOT SET"}`);
     console.log(`[NOTIFICATION-SERVICE] TELEGRAM_CHAT_ID: ${process.env.TELEGRAM_CHAT_ID || "NOT SET"}`);
+    console.log(`[NOTIFICATION-SERVICE] RESEND_API_KEY: ${process.env.RESEND_API_KEY ? "SET" : "NOT SET"}`);
     console.log("[NOTIFICATION-SERVICE] ====================================");
 
     this.slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
@@ -62,8 +66,14 @@ class NotificationService {
       console.log("[TELEGRAM] Telegram not configured - missing BOT_TOKEN or CHAT_ID");
     }
 
-    if (process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-      // Clean the host value to remove any extra spaces or quotes
+    // Priority 1: Use Resend if API key is available (recommended for cloud providers)
+    if (process.env.RESEND_API_KEY) {
+      this.resend = new Resend(process.env.RESEND_API_KEY);
+      this.useResend = true;
+      console.log("[EMAIL] ✅ Resend email service initialized (recommended for cloud)");
+    }
+    // Priority 2: Fall back to SMTP if Resend not configured
+    else if (process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
       const cleanHost = process.env.EMAIL_HOST.trim().replace(/['"]/g, '');
       const cleanUser = process.env.EMAIL_USER.trim().replace(/['"]/g, '');
       const cleanPass = process.env.EMAIL_PASS.trim();
@@ -76,28 +86,15 @@ class NotificationService {
           user: cleanUser,
           pass: cleanPass,
         },
-        connectionTimeout: 10000, // 10 second connection timeout
-        greetingTimeout: 10000,   // 10 second greeting timeout
-        socketTimeout: 30000,     // 30 second socket timeout
-        logger: true,             // Enable logging
-        debug: true,              // Enable debug output
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 30000,
       });
       
-      console.log("[EMAIL] ✅ Email transporter initialized successfully");
+      console.log("[EMAIL] ✅ SMTP email transporter initialized (fallback)");
       console.log(`[EMAIL] Config: Host=${cleanHost}, Port=${process.env.EMAIL_PORT || 587}, User=${cleanUser}`);
-      
-      // Verify the connection on startup
-      this.emailTransporter.verify((error, success) => {
-        if (error) {
-          console.error("[EMAIL] ❌ SMTP connection verification failed:", error.message);
-          console.error("[EMAIL] Full verification error:", error);
-        } else {
-          console.log("[EMAIL] ✅ SMTP connection verified successfully - ready to send emails");
-        }
-      });
     } else {
-      console.log("[EMAIL] ❌ Email not configured - missing HOST, USER, or PASS");
-      console.log(`[EMAIL] Debug: HOST=${process.env.EMAIL_HOST}, USER=${process.env.EMAIL_USER}, PASS=${process.env.EMAIL_PASS ? "set" : "missing"}`);
+      console.log("[EMAIL] ❌ Email not configured - set RESEND_API_KEY (recommended) or SMTP credentials");
     }
   }
 
@@ -187,13 +184,19 @@ class NotificationService {
   private async sendEmailNotification(
     payload: NotificationPayload
   ): Promise<{ success: boolean; error?: string }> {
+    // Use Resend if available (recommended for cloud providers like Render)
+    if (this.useResend && this.resend) {
+      return this.sendEmailViaResend(payload);
+    }
+    
+    // Fall back to SMTP
     if (!this.emailTransporter) {
-      console.error("[EMAIL] Cannot send - email transporter not initialized");
-      return { success: false, error: "Email not configured" };
+      console.error("[EMAIL] Cannot send - no email provider configured");
+      return { success: false, error: "Email not configured - set RESEND_API_KEY or SMTP credentials" };
     }
 
     try {
-      console.log(`[EMAIL] Attempting to send email for ${payload.source}`);
+      console.log(`[EMAIL] Attempting to send email via SMTP for ${payload.source}`);
       const { subject, html, text } = this.buildEmailMessage(payload);
       
       const info = await this.emailTransporter.sendMail({
@@ -204,13 +207,49 @@ class NotificationService {
         text,
       });
 
-      console.log("[EMAIL] ✅ Email sent successfully!");
+      console.log("[EMAIL] ✅ Email sent successfully via SMTP!");
       console.log(`[EMAIL] Message ID: ${info.messageId}`);
-      console.log(`[EMAIL] Recipients: info@truenester.com, truenester4u@gmail.com`);
       return { success: true };
     } catch (error: any) {
-      console.error("[EMAIL] ❌ Failed to send email:", error.message);
-      console.error("[EMAIL] Full error:", error);
+      console.error("[EMAIL] ❌ Failed to send email via SMTP:", error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  private async sendEmailViaResend(
+    payload: NotificationPayload
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!this.resend) {
+      return { success: false, error: "Resend not initialized" };
+    }
+
+    try {
+      console.log(`[EMAIL] Attempting to send email via Resend for ${payload.source}`);
+      const { subject, html, text } = this.buildEmailMessage(payload);
+      
+      // Resend requires a verified domain or use onboarding@resend.dev for testing
+      const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+      const toEmails = ["info@truenester.com", "truenester4u@gmail.com"];
+      
+      const { data, error } = await this.resend.emails.send({
+        from: fromEmail,
+        to: toEmails,
+        subject,
+        html,
+        text,
+      });
+
+      if (error) {
+        console.error("[EMAIL] ❌ Resend error:", error);
+        return { success: false, error: error.message };
+      }
+
+      console.log("[EMAIL] ✅ Email sent successfully via Resend!");
+      console.log(`[EMAIL] Resend ID: ${data?.id}`);
+      console.log(`[EMAIL] Recipients: ${toEmails.join(", ")}`);
+      return { success: true };
+    } catch (error: any) {
+      console.error("[EMAIL] ❌ Failed to send email via Resend:", error.message);
       return { success: false, error: error.message };
     }
   }
