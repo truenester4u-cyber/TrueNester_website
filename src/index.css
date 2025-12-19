@@ -196,4 +196,13 @@ All colors MUST be HSL.
   .dropdown-animate {
     animation: dropdownSlideIn 0.2s ease-out;  /* 👶 0.2s = how long animation takes */
   }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }

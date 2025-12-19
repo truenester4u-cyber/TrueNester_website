@@ -59,22 +59,23 @@ Go to: **Render Dashboard → Your Service → Environment**
 4. Create a new webhook for your channel
 5. Copy the webhook URL
 
-### Email Notifications (SMTP):
+### Email Notifications (Resend - Recommended):
 
 | Variable | Required | Example Value |
 |----------|----------|---------------|
-| `EMAIL_HOST` | ✅ Yes | `smtp.gmail.com` |
-| `EMAIL_PORT` | ✅ Yes | `587` |
-| `EMAIL_SECURE` | ✅ Yes | `false` |
-| `EMAIL_USER` | ✅ Yes | `your-email@gmail.com` |
-| `EMAIL_PASS` | ✅ Yes | Your app password (not regular password!) |
-| `EMAIL_FROM` | Optional | `TrueNester <noreply@truenester.com>` |
+| `RESEND_API_KEY` | ✅ Yes | `re_your_resend_api_key` |
+| `RESEND_FROM_EMAIL` | Optional | `onboarding@resend.dev` |
 
-**For Gmail:**
-1. Enable 2-Factor Authentication on your Google account
-2. Go to https://myaccount.google.com/apppasswords
-3. Generate an "App Password" for "Mail"
-4. Use this app password (not your Gmail password)
+**To get Resend API Key:**
+1. Go to https://resend.com/signup
+2. Create an account
+3. Navigate to API Keys section
+4. Create a new API key
+5. Copy the key
+
+**Note:** All emails will automatically be sent to both:
+- info@truenester.com
+- truenester4u@gmail.com
 
 ### Telegram Notifications (Optional):
 
@@ -140,6 +141,7 @@ After deployment, verify:
 - Set `FRONTEND_URL` in Render environment
 
 ### "Email not sending"
-- For Gmail: Use App Password, not regular password
-- Check `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_SECURE` are correct
+- Verify `RESEND_API_KEY` is set correctly in Render environment
+- Check that your Resend account is active and has available email credits
 - Check Render logs for `[EMAIL]` errors
+- Verify emails are being sent to: info@truenester.com and truenester4u@gmail.com

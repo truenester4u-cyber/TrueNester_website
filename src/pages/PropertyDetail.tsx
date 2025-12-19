@@ -244,6 +244,25 @@ const PropertyDetail = () => {
     if (e.touches.length === 0) {
       initialDistanceRef.current = 0;
       pinchStartRef.current = null;
+      
+      if (touchStart !== null && touchEnd !== null && zoom === 1) {
+        const distance = touchStart - touchEnd;
+        const isHorizontalSwipe = Math.abs(distance) > Math.abs((touchStartY || 0) - (touchEndY || 0));
+        const swipeThreshold = 50;
+        
+        if (isHorizontalSwipe && Math.abs(distance) > swipeThreshold) {
+          if (distance > 0) {
+            nextImage();
+          } else {
+            prevImage();
+          }
+        }
+      }
+      
+      setTouchStart(null);
+      setTouchEnd(null);
+      setTouchStartY(null);
+      setTouchEndY(null);
     }
   };
 
@@ -334,10 +353,12 @@ const PropertyDetail = () => {
 
   const nextImage = () => {
     setCurrentImageIndex((prev) => (prev + 1) % images.length);
+    setZoom(1);
   };
 
   const prevImage = () => {
     setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
+    setZoom(1);
   };
 
   const propertyTypes = parsePropertyTypes(property?.property_type);
@@ -450,8 +471,7 @@ const PropertyDetail = () => {
                     {/* Mobile Swipeable Gallery */}
                     <div className="block lg:hidden -mx-4 sm:-mx-6">
                       <div 
-                        className="relative w-full overflow-hidden"
-                        style={{ aspectRatio: '4/3' }}
+                        className="relative w-full overflow-hidden h-[65vh] sm:h-[55vh]"
                         onTouchStart={onTouchStart}
                         onTouchMove={onTouchMove}
                         onTouchEnd={() => onTouchEnd(images)}
@@ -462,20 +482,20 @@ const PropertyDetail = () => {
                           style={{ transform: `translateX(-${mobileImageIndex * 100}%)` }}
                         >
                           {images.length > 0 ? images.map((img, idx) => (
-                            <div key={idx} className="min-w-full h-full relative flex-shrink-0">
+                            <div key={idx} className="min-w-full h-full relative flex-shrink-0 bg-black/5 flex items-center justify-center">
                               <img 
                                 src={img || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop"} 
                                 alt={`${property.title} - ${idx + 1}`}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain"
                                 onClick={() => openLightbox(idx)}
                               />
                             </div>
                           )) : (
-                            <div className="min-w-full h-full relative flex-shrink-0">
+                            <div className="min-w-full h-full relative flex-shrink-0 bg-black/5 flex items-center justify-center">
                               <img 
                                 src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop"
                                 alt={property.title}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain"
                                 onClick={() => openLightbox(0)}
                               />
                             </div>
@@ -1496,52 +1516,99 @@ const PropertyDetail = () => {
               <ChevronRight className="h-6 w-6 sm:h-10 sm:w-10" />
             </button>
 
-            {/* Current Image with Zoom & Watermark */}
-            <div 
-              className="w-full h-full flex items-center justify-center select-none" 
-              onDoubleClick={resetZoom}
-              onClick={(e) => {
-                // Handle swipe navigation in lightbox
-                if (touchStart !== null && touchEnd !== null && initialDistanceRef.current === 0) {
-                  const distance = touchStart - touchEnd;
-                  const minDistance = 80;
-                  
-                  if (Math.abs(distance) > minDistance) {
-                    if (distance > 0 && currentImageIndex < images.length - 1) {
-                      nextImage();
-                    } else if (distance < 0 && currentImageIndex > 0) {
-                      prevImage();
-                    }
-                  }
-                }
-              }}
-            >
-              <div className="relative flex items-center justify-center max-h-full max-w-full">
-                <img
-                  src={images[currentImageIndex] || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop"}
-                  alt={`${property?.title || "Property"} - Image ${currentImageIndex + 1}`}
-                  style={{ transform: `scale(${zoom})`, transition: initialDistanceRef.current === 0 ? 'transform 0.15s ease-out' : 'none' }}
-                  className="max-w-[95vw] sm:max-w-[90vw] max-h-[85vh] sm:max-h-[80vh] object-contain rounded-lg touch-none user-select-none"
-                  draggable={false}
-                />
-                <img
-                  src={TrueNesterLogo}
-                  alt="TrueNester Logo"
-                  className="absolute top-2 right-2 sm:top-4 sm:right-4 h-12 sm:h-16 opacity-20 pointer-events-none"
-                  draggable={false}
-                />
-                {zoom > 1 && (
-                  <div className="absolute bottom-4 left-2 sm:bottom-6 sm:left-4 text-[11px] sm:text-sm bg-black/70 text-white px-3 py-1.5 rounded-md font-semibold">
-                    🔍 Zoom: {Math.round(zoom * 100)}%
+            {/* Current Image with Zoom & Watermark - Carousel Style */}
+            <div className="w-full h-full flex flex-col items-center justify-center select-none pb-24">
+              {zoom === 1 ? (
+                <div className="relative w-full overflow-hidden px-8 flex items-center justify-center" style={{ height: 'calc(100vh - 180px)' }}>
+                  <div 
+                    className="flex transition-transform duration-300 ease-out h-full gap-4"
+                    style={{ transform: `translateX(calc(-${currentImageIndex * 100}% - ${currentImageIndex * 16}px + ${currentImageIndex * 64}px))` }}
+                  >
+                    {images.map((img, idx) => (
+                      <div 
+                        key={idx}
+                        className={`flex-shrink-0 h-full relative flex items-center justify-center transition-all duration-300 ${
+                          idx === currentImageIndex ? 'w-[calc(100vw-128px)]' : 'w-[calc(100vw-128px)] opacity-30 scale-90'
+                        }`}
+                      >
+                        <img
+                          src={img || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop"}
+                          alt={`${property?.title || "Property"} - Image ${idx + 1}`}
+                          className="max-h-full max-w-full object-contain rounded-2xl"
+                          draggable={false}
+                        />
+                        {idx === currentImageIndex && (
+                          <img
+                            src={TrueNesterLogo}
+                            alt="TrueNester Logo"
+                            className="absolute top-4 right-4 h-12 sm:h-16 opacity-20 pointer-events-none"
+                            draggable={false}
+                          />
+                        )}
+                      </div>
+                    ))}
                   </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="relative flex items-center justify-center max-h-full max-w-full">
+                  <img
+                    src={images[currentImageIndex] || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop"}
+                    alt={`${property?.title || "Property"} - Image ${currentImageIndex + 1}`}
+                    style={{ transform: `scale(${zoom})`, transition: initialDistanceRef.current === 0 ? 'transform 0.15s ease-out' : 'none' }}
+                    className="max-w-[95vw] sm:max-w-[90vw] max-h-[85vh] sm:max-h-[80vh] object-contain rounded-lg touch-none user-select-none"
+                    draggable={false}
+                  />
+                  <img
+                    src={TrueNesterLogo}
+                    alt="TrueNester Logo"
+                    className="absolute top-2 right-2 sm:top-4 sm:right-4 h-12 sm:h-16 opacity-20 pointer-events-none"
+                    draggable={false}
+                  />
+                  {zoom > 1 && (
+                    <div className="absolute bottom-4 left-2 sm:bottom-6 sm:left-4 text-[11px] sm:text-sm bg-black/70 text-white px-3 py-1.5 rounded-md font-semibold">
+                      🔍 Zoom: {Math.round(zoom * 100)}%
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
+            {/* Thumbnail Strip */}
+            {images.length > 1 && zoom === 1 && (
+              <div className="absolute bottom-4 left-0 right-0 z-50 px-4">
+                <div className="flex gap-2 overflow-x-auto pb-2 snap-x snap-mandatory hide-scrollbar justify-center">
+                  {images.map((img, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentImageIndex(idx)}
+                      className={`flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden border-2 transition-all snap-center ${
+                        idx === currentImageIndex 
+                          ? 'border-white scale-110 shadow-lg shadow-white/30' 
+                          : 'border-white/30 opacity-50 hover:opacity-80'
+                      }`}
+                    >
+                      <img 
+                        src={img || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=200&auto=format&fit=crop"} 
+                        alt={`Thumbnail ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Mobile Hint for Swipe & Pinch */}
-            <div className="absolute bottom-2 sm:hidden text-white text-xs text-center bg-black/50 px-3 py-2 rounded-full max-w-xs">
-              {zoom === 1 ? "Pinch to zoom · Double tap · Swipe to navigate" : "Pinch to zoom out · Swipe to navigate"}
-            </div>
+            {zoom === 1 && (
+              <div className="absolute bottom-24 sm:hidden text-white text-xs text-center bg-black/50 px-3 py-2 rounded-full max-w-xs">
+                Pinch to zoom · Double tap · Swipe to navigate
+              </div>
+            )}
+            {zoom > 1 && (
+              <div className="absolute bottom-4 sm:hidden text-white text-xs text-center bg-black/50 px-3 py-2 rounded-full max-w-xs">
+                Pinch to zoom out · Swipe to navigate
+              </div>
+            )}
           </div>
         )}
 
