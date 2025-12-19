@@ -22,6 +22,11 @@ import {
   type LeadQuality,
 } from "./types";
 import { notificationService, type NotificationPayload } from "./services/notification-service";
+import { logger, requestIdMiddleware, generateRequestId } from "./lib/logger";
+import { leadEventEmitter } from "./lib/event-emitter";
+import { rateLimiters } from "./lib/rate-limiter";
+import { integrationManager, featureFlags } from "./lib/integrations";
+import { notificationWorker } from "./workers/notification-worker";
 
 dotenv.config();
 
@@ -43,21 +48,28 @@ const app = express();
 
 // Allow multiple origins including localhost and production
 const allowedOrigins = [
+  // Localhost development
   "http://localhost:8080",
   "http://localhost:8081",
   "http://localhost:8082",
   "http://localhost:8083",
-  "http://localhost:8084", // Current frontend port
+  "http://localhost:8084",
   "http://localhost:5173",
-  "https://bright-torte-7f50cf.netlify.app",
-  "https://dubai-nest-hub.netlify.app", // Main production domain
-  "https://spectacular-cat-ffb517.netlify.app", // Current Netlify deployment
-  // Vercel domains - explicit domain from env var
+  // Production custom domain
+  "https://truenester.com",
+  "https://www.truenester.com",
+  "https://api.truenester.com",
+  // Vercel deployments
+  "https://dubai-nest-hub-f3c99d5902f9f02eb444.vercel.app",
   "https://dubai-nest-hub-f3c99d5902f9f02eb444a8cf6bae253c0a7b8ead.vercel.app",
   // Vercel domains - regex patterns
   /^https:\/\/.*\.vercel\.app$/,
-  /^https:\/\/.*-.*\.vercel\.app$/,
-  /^https:\/\/dubai-nest-hub-.*\.vercel\.app$/,
+  /^https:\/\/dubai-nest-hub.*\.vercel\.app$/,
+  // Netlify legacy (if any)
+  "https://bright-torte-7f50cf.netlify.app",
+  "https://dubai-nest-hub.netlify.app",
+  "https://spectacular-cat-ffb517.netlify.app",
+  // Dynamic from env
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
@@ -92,6 +104,14 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan("dev"));
+app.use(requestIdMiddleware);
+
+// Start notification worker in background (polls for events)
+const ENABLE_NOTIFICATION_WORKER = process.env.ENABLE_NOTIFICATION_WORKER !== "false";
+if (ENABLE_NOTIFICATION_WORKER) {
+  notificationWorker.start();
+  logger.info("Notification worker started", { channel: "server" });
+}
 
 // Security headers
 app.use((req, res, next) => {
@@ -803,9 +823,59 @@ app.post("/api/chatbot/leads", async (req: Request, res: Response) => {
       }
     }
 
-    console.log(`[API] ✅ Successfully created conversation ${conversationId} for ${payload.customerName}`);
+    logger.info(`Successfully created conversation ${conversationId}`, {
+      requestId: (req as any).requestId,
+      conversationId,
+      customerName: payload.customerName,
+    });
+
+    // =========================================================================
+    // EVENT-DRIVEN ARCHITECTURE: Emit event instead of calling notifications directly
+    // WHY: Decouples lead capture from notification delivery
+    // - API returns immediately after saving lead
+    // - Notification worker processes events asynchronously
+    // - If Slack/Email fails, lead is never lost
+    // =========================================================================
     
-    console.log(`[API] Triggering multi-channel notification for conversation ${conversationId}`);
+    const idempotencyKey = `lead-${conversationId}`;
+    const eventPayload = {
+      conversationId,
+      customerId,
+      customerName: payload.customerName,
+      customerEmail: payload.customerEmail,
+      customerPhone: payload.customerPhone,
+      intent: payload.intent,
+      budget: payload.budget,
+      propertyType: payload.propertyType,
+      preferredArea: payload.preferredArea,
+      leadScore: leadScoreValue,
+      leadQuality: leadQualityValue,
+      durationMinutes,
+      source: "chatbot",
+      metadata: payload.metadata,
+    };
+
+    // Emit lead.created event (async - doesn't block response)
+    leadEventEmitter.emitLeadCreated(eventPayload, idempotencyKey)
+      .then((event) => {
+        if (event) {
+          logger.info(`Event emitted: lead.created`, {
+            requestId: (req as any).requestId,
+            eventId: event.id,
+            conversationId,
+          });
+        }
+      })
+      .catch((err) => {
+        logger.error(`Failed to emit lead.created event`, err, {
+          requestId: (req as any).requestId,
+          conversationId,
+        });
+      });
+
+    // LEGACY: Also send notifications directly for backward compatibility
+    // This ensures notifications work even if event worker isn't running
+    // Can be removed once event-driven system is fully validated
     const notificationPayload: NotificationPayload = {
       customerName: payload.customerName,
       customerEmail: payload.customerEmail,
@@ -824,13 +894,45 @@ app.post("/api/chatbot/leads", async (req: Request, res: Response) => {
         const channels = Object.entries(result.channels)
           .filter(([_, v]) => v?.success)
           .map(([k]) => k);
-        console.log(`[NOTIFICATION] ✅ Sent via: ${channels.join(", ")}`);
+        logger.info(`Notifications sent via: ${channels.join(", ")}`, {
+          requestId: (req as any).requestId,
+          conversationId,
+        });
       } else {
-        console.error("[NOTIFICATION] ❌ All channels failed");
+        logger.warn(`All notification channels failed`, {
+          requestId: (req as any).requestId,
+          conversationId,
+        });
       }
     }).catch((err) => {
-      console.error("[NOTIFICATION] ❌ Notification error:", err);
+      logger.error(`Notification error`, err, {
+        requestId: (req as any).requestId,
+        conversationId,
+      });
     });
+
+    // Future integrations (feature-flagged, currently disabled)
+    if (featureFlags.whatsappEnabled || featureFlags.crmEnabled) {
+      const leadData = {
+        conversationId,
+        customerId,
+        customerName: payload.customerName,
+        customerPhone: payload.customerPhone,
+        customerEmail: payload.customerEmail,
+        intent: payload.intent,
+        budget: payload.budget,
+        propertyType: payload.propertyType,
+        preferredArea: payload.preferredArea,
+        leadScore: leadScoreValue,
+        leadQuality: leadQualityValue,
+        source: "chatbot",
+        tags: payload.tags,
+      };
+
+      // These are no-ops unless feature flags are enabled
+      integrationManager.sendWhatsApp(leadData).catch(() => {});
+      integrationManager.pushToCRM(leadData).catch(() => {});
+    }
     
     return res.status(201).json({ id: conversationId, conversation: conversationData });
   } catch (error) {
@@ -1181,9 +1283,9 @@ app.get("/api/admin/analytics", authenticateRequest, async (req: Request, res: R
       leadSourceBreakdown: [],
       conversationVolumeTrend: [],
       leadQualityDistribution: [
-        { quality: "hot", count: hotLeads },
-        { quality: "warm", count: warmLeads },
-        { quality: "cold", count: coldLeads },
+        { quality: "hot", value: hotLeads },
+        { quality: "warm", value: warmLeads },
+        { quality: "cold", value: coldLeads },
       ],
       conversionFunnel: [
         { stage: "New", value: totalConversations },

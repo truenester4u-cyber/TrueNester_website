@@ -12,14 +12,20 @@ dist
 dist-ssr
 *.local
 
-# Environment variables - CRITICAL
+# Environment variables - CRITICAL (NEVER COMMIT)
 .env
+.env.*
 .env.local
 .env.*.local
 .env.production
 .env.production.local
 truenester-chatbot-api/.env
+truenester-chatbot-api/.env.*
 truenester-chatbot-api/.env.local
+truenester-chatbot-api/.env.production
+
+# Build output with bundled secrets
+dist/
 
 # Editor directories and files
 .vscode/*

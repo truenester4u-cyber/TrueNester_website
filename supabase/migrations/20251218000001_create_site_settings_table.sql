@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS public.site_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   
   -- General Settings
-  site_name TEXT DEFAULT 'Dubai Nest Hub',
+  site_name TEXT DEFAULT 'TRUE NESTER',
   site_tagline TEXT DEFAULT 'Find Your Perfect Property in UAE',
   site_description TEXT,
   contact_email TEXT,

@@ -13,7 +13,7 @@ export interface NotificationPayload {
   area?: string;
   leadScore?: number;
   duration?: number;
-  source: "chatbot" | "property_inquiry" | "contact_form";
+  source: "chatbot" | "property_inquiry" | "contact_form" | "sla_warning" | "sla_breach" | "system";
   subject?: string;
   message?: string;
   department?: string;
