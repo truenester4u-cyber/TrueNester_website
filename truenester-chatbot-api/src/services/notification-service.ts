@@ -38,12 +38,28 @@ class NotificationService {
   private frontendUrl: string;
 
   constructor() {
+    // Log all notification-related env vars at startup for debugging
+    console.log("[NOTIFICATION-SERVICE] ========== INITIALIZATION ==========");
+    console.log(`[NOTIFICATION-SERVICE] SLACK_WEBHOOK_URL: ${process.env.SLACK_WEBHOOK_URL ? "SET (" + process.env.SLACK_WEBHOOK_URL.substring(0, 40) + "...)" : "NOT SET"}`);
+    console.log(`[NOTIFICATION-SERVICE] EMAIL_HOST: ${process.env.EMAIL_HOST || "NOT SET"}`);
+    console.log(`[NOTIFICATION-SERVICE] EMAIL_USER: ${process.env.EMAIL_USER || "NOT SET"}`);
+    console.log(`[NOTIFICATION-SERVICE] EMAIL_PASS: ${process.env.EMAIL_PASS ? "SET (hidden)" : "NOT SET"}`);
+    console.log(`[NOTIFICATION-SERVICE] EMAIL_PORT: ${process.env.EMAIL_PORT || "NOT SET (default 587)"}`);
+    console.log(`[NOTIFICATION-SERVICE] EMAIL_SECURE: ${process.env.EMAIL_SECURE || "NOT SET (default false)"}`);
+    console.log(`[NOTIFICATION-SERVICE] EMAIL_FROM: ${process.env.EMAIL_FROM || "NOT SET"}`);
+    console.log(`[NOTIFICATION-SERVICE] TELEGRAM_BOT_TOKEN: ${process.env.TELEGRAM_BOT_TOKEN ? "SET" : "NOT SET"}`);
+    console.log(`[NOTIFICATION-SERVICE] TELEGRAM_CHAT_ID: ${process.env.TELEGRAM_CHAT_ID || "NOT SET"}`);
+    console.log("[NOTIFICATION-SERVICE] ====================================");
+
     this.slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
     this.frontendUrl = process.env.FRONTEND_URL || "http://localhost:8080";
 
     if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
       this.telegramBot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN);
       this.telegramChatId = process.env.TELEGRAM_CHAT_ID;
+      console.log("[TELEGRAM] Telegram bot initialized successfully");
+    } else {
+      console.log("[TELEGRAM] Telegram not configured - missing BOT_TOKEN or CHAT_ID");
     }
 
     if (process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
@@ -56,10 +72,11 @@ class NotificationService {
           pass: process.env.EMAIL_PASS,
         },
       });
-      console.log("[EMAIL] Email transporter initialized successfully");
-      console.log(`[EMAIL] Host: ${process.env.EMAIL_HOST}, User: ${process.env.EMAIL_USER}`);
+      console.log("[EMAIL] ✅ Email transporter initialized successfully");
+      console.log(`[EMAIL] Config: Host=${process.env.EMAIL_HOST}, Port=${process.env.EMAIL_PORT || 587}, User=${process.env.EMAIL_USER}`);
     } else {
-      console.log("[EMAIL] Email not configured - missing HOST, USER, or PASS");
+      console.log("[EMAIL] ❌ Email not configured - missing HOST, USER, or PASS");
+      console.log(`[EMAIL] Debug: HOST=${process.env.EMAIL_HOST}, USER=${process.env.EMAIL_USER}, PASS=${process.env.EMAIL_PASS ? "set" : "missing"}`);
     }
   }
 

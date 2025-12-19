@@ -1436,6 +1436,70 @@ app.get("/api/admin/search", authenticateRequest, async (req: Request, res: Resp
   return res.json((data ?? []).map(mapConversationRecord));
 });
 
+// Test endpoint to verify notification configuration
+app.get("/api/test-notifications", async (_req: Request, res: Response) => {
+  const config = {
+    slack: {
+      configured: !!process.env.SLACK_WEBHOOK_URL,
+      urlPreview: process.env.SLACK_WEBHOOK_URL ? process.env.SLACK_WEBHOOK_URL.substring(0, 50) + "..." : null,
+    },
+    email: {
+      configured: !!(process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS),
+      host: process.env.EMAIL_HOST || null,
+      user: process.env.EMAIL_USER || null,
+      port: process.env.EMAIL_PORT || "587",
+      secure: process.env.EMAIL_SECURE || "false",
+      from: process.env.EMAIL_FROM || null,
+    },
+    telegram: {
+      configured: !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
+    },
+    frontend: process.env.FRONTEND_URL || "http://localhost:8080",
+  };
+  
+  return res.json({
+    status: "ok",
+    message: "Notification service configuration",
+    config,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Test endpoint to send a test notification
+app.post("/api/test-notifications/send", async (_req: Request, res: Response) => {
+  try {
+    const testPayload = {
+      customerName: "Test User",
+      customerEmail: "test@example.com",
+      customerPhone: "+971501234567",
+      intent: "buy",
+      budget: "1M-2M AED",
+      propertyType: "Apartment",
+      area: "Dubai Marina",
+      leadScore: 85,
+      duration: 5,
+      source: "chatbot" as const,
+    };
+    
+    console.log("[TEST] Sending test notification...");
+    const result = await notificationService.sendNotification(testPayload);
+    console.log("[TEST] Notification result:", JSON.stringify(result, null, 2));
+    
+    return res.json({
+      status: result.success ? "success" : "partial_failure",
+      result,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error("[TEST] Notification error:", error);
+    return res.status(500).json({
+      status: "error",
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: err.message ?? "Internal server error" });
 });
