@@ -97,7 +97,7 @@ const buildSectionData = (properties: Property[]): SectionWithProperties[] => {
 };
 
 const renderSkeletonGrid = () => (
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
     {[...Array(3)].map((_, i) => (
       <Card key={i} className="overflow-hidden">
         <div className="h-64 bg-muted animate-pulse" />
@@ -176,55 +176,55 @@ const FeaturedProperties = () => {
     return (
       <Card key={property.id} className="overflow-hidden hover-lift group cursor-pointer border-0 shadow-lg">
         <Link to={`/property/${property.id}`} onClick={() => window.scrollTo(0, 0)}>
-          <div className="relative overflow-hidden h-64">
-            {/* If only 1 image, show full width. Otherwise show grid layout */}
+          <div className="relative overflow-hidden h-56 md:h-64">
+            {/* 4-Image Grid Layout for all screen sizes from 307px */}
             {!hasMultipleImages ? (
               <div className="w-full h-full relative overflow-hidden">
                 <img
                   src={mainImage}
                   alt={property.title || 'Property'}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                  className="w-full h-full object-contain md:object-cover group-hover:scale-105 transition-all duration-700"
                   onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                   loading="lazy"
                 />
                 {property.featured && (
-                  <div className="absolute top-4 left-4 z-10">
-                    <span className="badge-featured">Featured</span>
+                  <div className="absolute top-3 left-3 md:top-4 md:left-4 z-10">
+                    <span className="badge-featured text-xs md:text-sm">Featured</span>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="flex gap-2 h-full">
+              <div className="flex gap-1 sm:gap-2 h-full">
                 <div className={`${thumbnails.length > 0 ? 'flex-[65]' : 'w-full'} relative overflow-hidden`}>
                   <img
                     src={mainImage}
                     alt={property.title || 'Property'}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                    className="w-full h-full object-contain md:object-cover group-hover:scale-105 transition-all duration-700"
                     onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                     loading="lazy"
                   />
                   {property.featured && (
-                    <div className="absolute top-4 left-4 z-10">
-                      <span className="badge-featured">Featured</span>
+                    <div className="absolute top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-10">
+                      <span className="badge-featured text-[10px] sm:text-xs md:text-sm">Featured</span>
                     </div>
                   )}
                 </div>
 
                 {thumbnails.length > 0 && (
-                  <div className="flex-[35] flex flex-col gap-2">
+                  <div className="flex flex-[35] flex-col gap-1 sm:gap-2">
                     {thumbnails.map((img, idx) => (
-                      <div key={idx} className="flex-1 relative overflow-hidden rounded-md">
+                      <div key={idx} className="flex-1 relative overflow-hidden rounded-sm sm:rounded-md">
                         <img
                           src={img}
                           alt={`${property.title || 'Property'} - ${idx + 2}`}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                          className="w-full h-full object-contain md:object-cover group-hover:scale-105 transition-all duration-700"
                           onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                           loading="lazy"
                         />
                         {/* Show +N overlay on last thumbnail if more images exist */}
                         {idx === thumbnails.length - 1 && allImages.length > 4 && (
                           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center">
-                            <span className="text-white text-xl font-bold">+{allImages.length - 4}</span>
+                            <span className="text-white text-base sm:text-xl font-bold">+{allImages.length - 4}</span>
                           </div>
                         )}
                       </div>
@@ -234,35 +234,42 @@ const FeaturedProperties = () => {
               </div>
             )}
 
-            <div className="absolute bottom-4 left-4 bg-white rounded-xl px-4 py-2 z-10 shadow-xl">
-              <div className="text-sm font-bold text-gray-900">{getDisplayPrice(property)}</div>
+            <div className="absolute bottom-3 left-3 md:bottom-4 md:left-4 bg-white rounded-lg md:rounded-xl px-3 py-1.5 md:px-4 md:py-2 z-10 shadow-xl">
+              <div className="text-xs md:text-sm font-bold text-gray-900">{getDisplayPrice(property)}</div>
             </div>
+            
+            {/* Photo count badge - Mobile only */}
+            {allImages.length > 1 && (
+              <div className="md:hidden absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm rounded-full px-2.5 py-1 z-10">
+                <span className="text-white text-xs font-medium">{allImages.length} Photos</span>
+              </div>
+            )}
           </div>
 
-          <CardContent className="p-6">
-            <div className="mb-3">
+          <CardContent className="p-4 md:p-6">
+            <div className="mb-2 md:mb-3">
               {property.developer && (
-                <p className="text-sm text-primary font-bold mb-1 border border-primary/30 inline-block px-2 py-0.5 rounded">{property.developer}</p>
+                <p className="text-xs md:text-sm text-primary font-bold mb-1 border border-primary/30 inline-block px-2 py-0.5 rounded">{property.developer}</p>
               )}
-              <h3 className="text-xl font-bold mb-2 line-clamp-2 group-hover:text-primary transition-colors">
+              <h3 className="text-base md:text-xl font-bold mb-1.5 md:mb-2 line-clamp-2 group-hover:text-primary transition-colors">
                 {property.title}
               </h3>
-              <p className="text-lg text-primary font-semibold flex items-center gap-2">
-                <MapPin className="h-5 w-5 text-primary" />
-                {getAreaDisplay(property)}
+              <p className="text-sm md:text-lg text-primary font-semibold flex items-center gap-1.5 md:gap-2">
+                <MapPin className="h-4 w-4 md:h-5 md:w-5 text-primary flex-shrink-0" />
+                <span className="line-clamp-1">{getAreaDisplay(property)}</span>
               </p>
             </div>
 
-            <div className="flex items-center gap-4 text-sm text-muted-foreground border-t pt-4">
+            <div className="flex items-center gap-3 md:gap-4 text-xs md:text-sm text-muted-foreground border-t pt-3 md:pt-4">
               {property.bedrooms && (
                 <div className="flex items-center gap-1">
-                  <Bed className="h-4 w-4" />
+                  <Bed className="h-3.5 w-3.5 md:h-4 md:w-4" />
                   <span>{property.bedrooms}</span>
                 </div>
               )}
               {property.bathrooms && (
                 <div className="flex items-center gap-1">
-                  <Bath className="h-4 w-4" />
+                  <Bath className="h-3.5 w-3.5 md:h-4 md:w-4" />
                   <span>{property.bathrooms}</span>
                 </div>
               )}
@@ -270,37 +277,37 @@ const FeaturedProperties = () => {
                 const sqftValue = parseSqft(property.size_sqft);
                 return sqftValue ? (
                   <div className="flex items-center gap-1">
-                    <Square className="h-4 w-4" />
+                    <Square className="h-3.5 w-3.5 md:h-4 md:w-4" />
                     <span>{sqftValue.toLocaleString()} sqft</span>
                   </div>
                 ) : null;
               })()}
             </div>
 
-            {/* Amenities Preview */}
+            {/* Amenities Preview - Show fewer on mobile */}
             {property.amenities && property.amenities.length > 0 && (
-              <div className="mt-3 pt-3 border-t">
-                <div className="flex items-center gap-2 flex-wrap">
-                  {property.amenities.slice(0, 4).map((amenity: string, idx: number) => {
+              <div className="mt-2.5 md:mt-3 pt-2.5 md:pt-3 border-t">
+                <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
+                  {property.amenities.slice(0, 3).map((amenity: string, idx: number) => {
                     const Icon = getAmenityIcon(amenity);
                     const colorClass = getAmenityColor(amenity);
                     return (
-                      <div key={idx} className="flex items-center gap-1.5 text-xs bg-gray-50 px-2 py-1 rounded-md">
-                        <Icon className={`h-3.5 w-3.5 ${colorClass}`} />
+                      <div key={idx} className="flex items-center gap-1 md:gap-1.5 text-xs bg-gray-50 px-1.5 py-0.5 md:px-2 md:py-1 rounded-md">
+                        <Icon className={`h-3 w-3 md:h-3.5 md:w-3.5 ${colorClass}`} />
                         <span className="text-gray-700 font-medium">{amenity}</span>
                       </div>
                     );
                   })}
-                  {property.amenities.length > 4 && (
-                    <span className="text-xs text-muted-foreground font-medium">+{property.amenities.length - 4} more</span>
+                  {property.amenities.length > 3 && (
+                    <span className="text-xs text-muted-foreground font-medium">+{property.amenities.length - 3} more</span>
                   )}
                 </div>
               </div>
             )}
 
-            <div className="mt-4 flex gap-2">
-              <Button className="flex-1 bg-primary hover:bg-primary-dark text-white">View Details</Button>
-              <Button variant="outline" className="flex-1">
+            <div className="mt-3 md:mt-4 flex gap-2">
+              <Button className="flex-1 bg-primary hover:bg-primary-dark text-white text-xs md:text-sm h-9 md:h-10">View Details</Button>
+              <Button variant="outline" className="flex-1 text-xs md:text-sm h-9 md:h-10">
                 Enquire Now
               </Button>
             </div>

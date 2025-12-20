@@ -23,6 +23,8 @@ services:
         value: https://truenester.com
       - key: SLACK_WEBHOOK_URL
         sync: false  # Set manually in Render dashboard
+      - key: SLACK_WEBHOOK_NEWSLETTER_URL
+        sync: false  # Set manually in Render dashboard for newsletter notifications
       - key: TELEGRAM_BOT_TOKEN
         sync: false  # Optional - set if using Telegram
       - key: TELEGRAM_CHAT_ID

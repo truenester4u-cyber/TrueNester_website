@@ -1,4 +1,4 @@
-import { FileText, LogOut, Home, LayoutDashboard, Building2, MapPin, MessageSquare, Star, Package } from "lucide-react";
+import { FileText, LogOut, Home, LayoutDashboard, Building2, MapPin, MessageSquare, Star, Package, Mail } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +21,7 @@ const items = [
   { title: "Conversations", url: "/admin/conversations", icon: MessageSquare },
   { title: "Sell Submissions", url: "/admin/sell-submissions", icon: Package },
   { title: "Reviews", url: "/admin/reviews", icon: Star },
+  { title: "Newsletter", url: "/admin/newsletter", icon: Mail },
   { title: "Properties", url: "/admin/properties", icon: Building2 },
   { title: "Locations", url: "/admin/locations", icon: MapPin },
   { title: "Blog Posts", url: "/admin/blog", icon: FileText },

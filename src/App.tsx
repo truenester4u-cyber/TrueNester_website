@@ -33,6 +33,7 @@ import NotFound from "./pages/NotFound";
 import ConversationsPage from "./pages/admin/Conversations";
 import AdminReviews from "./pages/admin/Reviews";
 import SellSubmissions from "./pages/admin/SellSubmissions";
+import AdminNewsletter from "./pages/admin/AdminNewsletter";
 import AdminAuth from "./pages/AdminAuth";
 import TrueNesterChatbot from "./components/chat/TrueNesterChatbot";
 import { CookieBanner } from "./components/CookieBanner";
@@ -251,6 +252,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute requireAdmin={true}>
               <SellSubmissions />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/newsletter"
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <AdminNewsletter />
             </ProtectedRoute>
           }
         />

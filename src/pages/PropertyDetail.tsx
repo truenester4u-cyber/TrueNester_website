@@ -1516,37 +1516,23 @@ const PropertyDetail = () => {
               <ChevronRight className="h-6 w-6 sm:h-10 sm:w-10" />
             </button>
 
-            {/* Current Image with Zoom & Watermark - Carousel Style */}
+            {/* Current Image with Zoom & Watermark - Single Image Display */}
             <div className="w-full h-full flex flex-col items-center justify-center select-none pb-24">
               {zoom === 1 ? (
-                <div className="relative w-full overflow-hidden px-8 flex items-center justify-center" style={{ height: 'calc(100vh - 180px)' }}>
-                  <div 
-                    className="flex transition-transform duration-300 ease-out h-full gap-4"
-                    style={{ transform: `translateX(calc(-${currentImageIndex * 100}% - ${currentImageIndex * 16}px + ${currentImageIndex * 64}px))` }}
-                  >
-                    {images.map((img, idx) => (
-                      <div 
-                        key={idx}
-                        className={`flex-shrink-0 h-full relative flex items-center justify-center transition-all duration-300 ${
-                          idx === currentImageIndex ? 'w-[calc(100vw-128px)]' : 'w-[calc(100vw-128px)] opacity-30 scale-90'
-                        }`}
-                      >
-                        <img
-                          src={img || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop"}
-                          alt={`${property?.title || "Property"} - Image ${idx + 1}`}
-                          className="max-h-full max-w-full object-contain rounded-2xl"
-                          draggable={false}
-                        />
-                        {idx === currentImageIndex && (
-                          <img
-                            src={TrueNesterLogo}
-                            alt="TrueNester Logo"
-                            className="absolute top-4 right-4 h-12 sm:h-16 opacity-20 pointer-events-none"
-                            draggable={false}
-                          />
-                        )}
-                      </div>
-                    ))}
+                <div className="relative w-full h-[calc(100vh-200px)] flex items-center justify-center px-4">
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    <img
+                      src={images[currentImageIndex] || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop"}
+                      alt={`${property?.title || "Property"} - Image ${currentImageIndex + 1}`}
+                      className="max-w-full max-h-full object-contain rounded-2xl"
+                      draggable={false}
+                    />
+                    <img
+                      src={TrueNesterLogo}
+                      alt="TrueNester Logo"
+                      className="absolute top-4 right-4 h-12 sm:h-16 opacity-20 pointer-events-none"
+                      draggable={false}
+                    />
                   </div>
                 </div>
               ) : (

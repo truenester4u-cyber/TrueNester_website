@@ -48,14 +48,14 @@ const app = express();
 
 // Allow multiple origins including localhost and production
 const allowedOrigins = [
-  // Localhost development
+  // Local development (all common ports)
   "http://localhost:8080",
   "http://localhost:8081",
   "http://localhost:8082",
-  "http://localhost:8083",
-  "http://localhost:8084",
-  "http://localhost:5173",
-  // Production custom domain
+  "http://127.0.0.1:8080",
+  "http://127.0.0.1:8081",
+  "http://127.0.0.1:8082",
+  // Production domains
   "https://truenester.com",
   "https://www.truenester.com",
   "https://api.truenester.com",
@@ -1496,6 +1496,208 @@ app.post("/api/test-notifications/send", async (_req: Request, res: Response) =>
       status: "error",
       error: error.message,
       timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+// Newsletter subscription endpoint with Slack notification
+app.post("/api/newsletter/subscribe", async (req: Request, res: Response) => {
+  try {
+    const { email, source = 'website' } = req.body;
+    
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Valid email address is required' 
+      });
+    }
+
+    console.log(`[NEWSLETTER] New subscription request: ${email} from ${source}`);
+
+    // Get client IP and user agent
+    const ip_address = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user_agent = req.headers['user-agent'] || 'unknown';
+
+    // Insert into database
+    const { data: subscriber, error } = await supabase
+      .from('newsletter_subscribers')
+      .insert({
+        email,
+        source,
+        ip_address: typeof ip_address === 'string' ? ip_address : ip_address[0],
+        user_agent,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      // Check if it's a duplicate email error
+      if (error.code === '23505') {
+        return res.status(409).json({ 
+          success: false, 
+          error: 'This email is already subscribed to our newsletter.' 
+        });
+      }
+      console.error('[NEWSLETTER] Database error:', error);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to subscribe. Please try again.' 
+      });
+    }
+
+    console.log(`[NEWSLETTER] Subscriber added to database: ${subscriber.id}`);
+
+    // Send Slack notification
+    const slackWebhookUrl = process.env.SLACK_WEBHOOK_NEWSLETTER_URL || process.env.SLACK_WEBHOOK_URL;
+    
+    if (slackWebhookUrl) {
+      try {
+        const slackMessage = {
+          text: '📧 New Newsletter Subscription',
+          blocks: [
+            {
+              type: 'header',
+              text: {
+                type: 'plain_text',
+                text: '📧 New Newsletter Subscription',
+                emoji: true,
+              },
+            },
+            {
+              type: 'section',
+              fields: [
+                {
+                  type: 'mrkdwn',
+                  text: `*Email:*\n${subscriber.email}`,
+                },
+                {
+                  type: 'mrkdwn',
+                  text: `*Source:*\n${subscriber.source}`,
+                },
+                {
+                  type: 'mrkdwn',
+                  text: `*Subscribed At:*\n${new Date(subscriber.subscribed_at).toLocaleString()}`,
+                },
+                {
+                  type: 'mrkdwn',
+                  text: `*IP Address:*\n${subscriber.ip_address || 'N/A'}`,
+                },
+              ],
+            },
+            {
+              type: 'divider',
+            },
+            {
+              type: 'context',
+              elements: [
+                {
+                  type: 'mrkdwn',
+                  text: `Subscriber ID: ${subscriber.id}`,
+                },
+              ],
+            },
+          ],
+        };
+
+        const slackResponse = await fetch(slackWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(slackMessage),
+        });
+
+        if (slackResponse.ok) {
+          console.log('[NEWSLETTER] ✅ Slack notification sent successfully');
+        } else {
+          const errorText = await slackResponse.text();
+          console.error('[NEWSLETTER] ❌ Slack notification failed:', slackResponse.status, errorText);
+        }
+      } catch (slackError: any) {
+        console.error('[NEWSLETTER] Slack notification error:', slackError.message);
+        // Don't fail the request if Slack fails
+      }
+    } else {
+      console.warn('[NEWSLETTER] No Slack webhook configured - skipping notification');
+    }
+
+    return res.json({ 
+      success: true, 
+      data: subscriber 
+    });
+
+  } catch (error: any) {
+    console.error('[NEWSLETTER] Subscription error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to subscribe. Please try again.' 
+    });
+  }
+});
+
+// Get all newsletter subscribers (for admin panel)
+app.get("/api/newsletter/subscribers", async (req: Request, res: Response) => {
+  try {
+    console.log('[NEWSLETTER] Fetching all subscribers...');
+
+    const { data: subscribers, error } = await supabase
+      .from('newsletter_subscribers')
+      .select('*')
+      .order('subscribed_at', { ascending: false });
+
+    if (error) {
+      console.error('[NEWSLETTER] Database error:', error);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to fetch subscribers' 
+      });
+    }
+
+    console.log(`[NEWSLETTER] Found ${subscribers?.length || 0} subscribers`);
+
+    return res.json({ 
+      success: true, 
+      data: subscribers || [] 
+    });
+
+  } catch (error: any) {
+    console.error('[NEWSLETTER] Fetch error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to fetch subscribers' 
+    });
+  }
+});
+
+// Delete newsletter subscriber (for admin panel)
+app.delete("/api/newsletter/subscribers/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    console.log(`[NEWSLETTER] Deleting subscriber: ${id}`);
+
+    const { error } = await supabase
+      .from('newsletter_subscribers')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('[NEWSLETTER] Delete error:', error);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to delete subscriber' 
+      });
+    }
+
+    console.log(`[NEWSLETTER] ✅ Subscriber deleted: ${id}`);
+
+    return res.json({ 
+      success: true, 
+      message: 'Subscriber deleted successfully' 
+    });
+
+  } catch (error: any) {
+    console.error('[NEWSLETTER] Delete error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to delete subscriber' 
     });
   }
 });

@@ -81,9 +81,9 @@ const HeartButton = ({ propertyId, propertyTitle, propertyImage, propertyPrice }
     <button 
       onClick={handleClick}
       disabled={isLoading}
-      className="absolute top-4 right-4 w-11 h-11 bg-white/95 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white hover:scale-110 transition-all shadow-lg z-10 disabled:opacity-50"
+      className="w-9 h-9 md:w-11 md:h-11 bg-white/95 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white hover:scale-110 transition-all shadow-lg disabled:opacity-50"
     >
-      <Heart className={`h-5 w-5 transition-colors ${isFavorite ? 'text-red-500 fill-current' : 'text-gray-700 hover:text-red-500'}`} />
+      <Heart className={`h-4 w-4 md:h-5 md:w-5 transition-colors ${isFavorite ? 'text-red-500 fill-current' : 'text-gray-700 hover:text-red-500'}`} />
     </button>
   );
 };
@@ -767,7 +767,7 @@ const Rent = () => {
                     <p className="text-xs sm:text-sm md:text-base text-muted-foreground px-2">No properties found. Try adjusting your search or filters.</p>
                   </div>
                 ) : (
-                  <div className={`grid ${viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2" : "grid-cols-1"} gap-2 sm:gap-3 md:gap-4`}>
+                  <div className={`grid ${viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-2" : "grid-cols-1"} gap-6 md:gap-4`}>
                     {sortedProperties.map((property) => {
                       const images = (property.images as string[]) || [];
                       const allImages = property.featured_image ? [property.featured_image, ...images.filter((img: string) => img !== property.featured_image)] : images;
@@ -784,110 +784,117 @@ const Rent = () => {
                           className="overflow-hidden hover-lift group cursor-pointer border-0 shadow-lg"
                         >
                           <Link to={`/property/${property.id}`} onClick={() => window.scrollTo(0, 0)}>
-                            <div className="relative overflow-hidden h-80">
-                              {/* Enhanced Grid Layout: Main image with side thumbnails */}
-                              <div className="flex gap-2 h-full">
-                                {/* Main large image - 65% width */}
+                            <div className="relative overflow-hidden h-64 md:h-80">
+                              {/* 4-Image Grid Layout for all screen sizes from 307px */}
+                              <div className="flex gap-1 sm:gap-2 h-full">
+                                {/* Main large image - 65% width on all screens */}
                                 <div className="flex-[65] relative overflow-hidden">
                                   <img
                                     src={mainImage}
                                     alt={property.title}
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                                    className="w-full h-full object-contain md:object-cover group-hover:scale-105 transition-all duration-700"
                                   />
-                                  {/* Gradient overlay for better text visibility */}
-                                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
                                   
                                   {property.featured && (
-                                    <div className="absolute top-4 left-4 z-10">
-                                      <span className="bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow-lg">FEATURED</span>
+                                    <div className="absolute top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-10">
+                                      <span className="bg-gradient-to-r from-amber-500 to-amber-600 text-white text-[10px] sm:text-xs font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 md:px-3 md:py-1.5 rounded-md shadow-lg">FEATURED</span>
                                     </div>
                                   )}
                                 </div>
                                 
-                                {/* Right column with stacked thumbnails - 35% width */}
-                                <div className="flex-[35] flex flex-col gap-2">
+                                {/* Right column with stacked thumbnails - Visible on all screens from 307px */}
+                                <div className="flex flex-[35] flex-col gap-1 sm:gap-2">
                                   {thumbnails.slice(0, 2).map((img: string, idx: number) => (
-                                    <div key={idx} className="flex-1 relative overflow-hidden rounded-md">
+                                    <div key={idx} className="flex-1 relative overflow-hidden rounded-sm sm:rounded-md">
                                       <img
                                         src={img}
                                         alt={`${property.title} - ${idx + 2}`}
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                                        className="w-full h-full object-contain md:object-cover group-hover:scale-105 transition-all duration-700"
                                       />
                                     </div>
                                   ))}
                                   {/* Bottom thumbnail with photo counter overlay */}
                                   {thumbnails.length >= 1 && (
-                                    <div className="flex-1 relative overflow-hidden rounded-md">
+                                    <div className="flex-1 relative overflow-hidden rounded-sm sm:rounded-md">
                                       <img
                                         src={thumbnails[2] || thumbnails[0]}
                                         alt={`${property.title}`}
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                                        className="w-full h-full object-contain md:object-cover group-hover:scale-105 transition-all duration-700"
                                       />
                                       {totalPhotos > 4 && (
                                         <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center">
-                                          <span className="text-white text-2xl font-bold">+{totalPhotos - 4}</span>
+                                          <span className="text-white text-base sm:text-xl md:text-2xl font-bold">+{totalPhotos - 4}</span>
                                         </div>
                                       )}
                                     </div>
                                   )}
                                   {thumbnails.length < 3 && Array.from({ length: 3 - thumbnails.length }).map((_, idx) => (
-                                    <div key={`placeholder-${idx}`} className="flex-1 bg-gradient-to-br from-gray-100 to-gray-200 rounded-md" />
+                                    <div key={`placeholder-${idx}`} className="flex-1 bg-gradient-to-br from-gray-100 to-gray-200 rounded-sm sm:rounded-md" />
                                   ))}
                                 </div>
                               </div>
                               
-                              {/* Overlay elements with improved styling */}
-                              <HeartButton 
-                                propertyId={property.id}
-                                propertyTitle={property.title}
-                                propertyImage={property.featured_image}
-                                propertyPrice={property.price}
-                              />
+                              {/* Heart button - Smaller on mobile */}
+                              <div className="absolute top-3 right-3 md:top-4 md:right-4 z-10">
+                                <HeartButton 
+                                  propertyId={property.id}
+                                  propertyTitle={property.title}
+                                  propertyImage={property.featured_image}
+                                  propertyPrice={property.price}
+                                />
+                              </div>
                               
-                              {/* Price badge with enhanced styling */}
-                              <div className="absolute bottom-4 left-4 bg-white rounded-xl px-5 py-3 z-10 shadow-xl">
-                                <div className="text-lg font-bold text-gray-900 flex items-center gap-1">
+                              {/* Price badge - Responsive sizing */}
+                              <div className="absolute bottom-3 left-3 md:bottom-4 md:left-4 bg-white rounded-lg md:rounded-xl px-3 py-2 md:px-5 md:py-3 z-10 shadow-xl">
+                                <div className="text-sm md:text-lg font-bold text-gray-900 flex items-center gap-1">
                                   <span>{priceLabel}</span>
                                   {showMonthlySuffix && (
-                                    <span className="text-sm font-normal text-gray-600">/mo</span>
+                                    <span className="text-xs md:text-sm font-normal text-gray-600">/mo</span>
                                   )}
                                 </div>
                               </div>
+                              
+                              {/* Photo count badge - Mobile only */}
+                              {totalPhotos > 1 && (
+                                <div className="md:hidden absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm rounded-full px-2.5 py-1 z-10">
+                                  <span className="text-white text-xs font-medium">{totalPhotos} Photos</span>
+                                </div>
+                              )}
                             </div>
 
-                            <CardContent className="p-6">
-                              <div className="mb-4">
+                            <CardContent className="p-4 md:p-6">
+                              <div className="mb-3 md:mb-4">
                                 {property.developer && (
-                                  <p className="text-xs text-primary font-bold mb-2 uppercase tracking-wide">
+                                  <p className="text-xs text-primary font-bold mb-1.5 md:mb-2 uppercase tracking-wide">
                                     {property.developer}
                                   </p>
                                 )}
-                                <h3 className="text-lg font-bold mb-2 line-clamp-2 group-hover:text-primary transition-colors leading-tight">
+                                <h3 className="text-base md:text-lg font-bold mb-1.5 md:mb-2 line-clamp-2 group-hover:text-primary transition-colors leading-tight">
                                   {property.title}
                                 </h3>
-                                <p className="text-base text-primary flex items-center gap-1.5 font-semibold">
-                                  <MapPin className="h-5 w-5 flex-shrink-0 text-primary" />
+                                <p className="text-sm md:text-base text-primary flex items-center gap-1.5 font-semibold">
+                                  <MapPin className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0 text-primary" />
                                   <span className="line-clamp-1">{getAreaDisplay(property)}</span>
                                 </p>
                               </div>
 
-                              <div className="flex items-center gap-5 text-lg text-gray-700 border-t border-gray-100 pt-4">
+                              <div className="flex items-center gap-3 md:gap-5 text-sm md:text-lg text-gray-700 border-t border-gray-100 pt-3 md:pt-4">
                                 {property.bedrooms && (
-                                  <div className="flex items-center gap-1.5">
-                                    <Bed className="h-5 w-5 text-primary" />
-                                    <span className="font-medium">{property.bedrooms}</span>
+                                  <div className="flex items-center gap-1 md:gap-1.5">
+                                    <Bed className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+                                    <span className="font-medium text-xs md:text-base">{property.bedrooms}</span>
                                   </div>
                                 )}
                                 {property.bathrooms && (
-                                  <div className="flex items-center gap-1.5">
-                                    <Bath className="h-5 w-5 text-primary" />
-                                    <span className="font-medium">{property.bathrooms}</span>
+                                  <div className="flex items-center gap-1 md:gap-1.5">
+                                    <Bath className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+                                    <span className="font-medium text-xs md:text-base">{property.bathrooms}</span>
                                   </div>
                                 )}
                                 {property.size_sqft && (
-                                  <div className="flex items-center gap-1.5">
-                                    <Square className="h-5 w-5 text-primary" />
-                                    <span className="font-medium">{formatSizeValue(property.size_sqft)}</span>
+                                  <div className="flex items-center gap-1 md:gap-1.5">
+                                    <Square className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+                                    <span className="font-medium text-xs md:text-base">{formatSizeValue(property.size_sqft)}</span>
                                   </div>
                                 )}
                               </div>

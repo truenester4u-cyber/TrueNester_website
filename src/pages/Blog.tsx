@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
+import { NewsletterForm } from "@/components/NewsletterForm";
 
 interface BlogPost {
   id: string;
@@ -156,16 +157,7 @@ const Blog = () => {
               Subscribe to our newsletter and get the latest Dubai property insights 
               delivered directly to your inbox.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="flex-1 px-4 py-3 rounded-md text-foreground"
-              />
-              <Button variant="secondary" size="lg" className="bg-white text-primary hover:bg-white/90">
-                Subscribe
-              </Button>
-            </div>
+            <NewsletterForm source="blog" />
           </div>
         </section>
       </div>
