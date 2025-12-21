@@ -170,7 +170,7 @@ const FeaturedProperties = () => {
       : images;
     const allImages = baseImages.length > 0 ? baseImages : [PLACEHOLDER_IMAGE];
     const mainImage = allImages[0] || PLACEHOLDER_IMAGE;
-    const thumbnails = allImages.slice(1, 4);
+    const thumbnails = allImages.slice(1, 3);
     const hasMultipleImages = allImages.length > 1;
 
     return (
@@ -183,7 +183,7 @@ const FeaturedProperties = () => {
                 <img
                   src={mainImage}
                   alt={property.title || 'Property'}
-                  className="w-full h-full object-contain md:object-cover group-hover:scale-105 transition-all duration-700"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
                   onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                   loading="lazy"
                 />
@@ -199,7 +199,7 @@ const FeaturedProperties = () => {
                   <img
                     src={mainImage}
                     alt={property.title || 'Property'}
-                    className="w-full h-full object-contain md:object-cover group-hover:scale-105 transition-all duration-700"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
                     onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                     loading="lazy"
                   />
@@ -217,14 +217,14 @@ const FeaturedProperties = () => {
                         <img
                           src={img}
                           alt={`${property.title || 'Property'} - ${idx + 2}`}
-                          className="w-full h-full object-contain md:object-cover group-hover:scale-105 transition-all duration-700"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
                           onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                           loading="lazy"
                         />
                         {/* Show +N overlay on last thumbnail if more images exist */}
-                        {idx === thumbnails.length - 1 && allImages.length > 4 && (
+                        {idx === thumbnails.length - 1 && allImages.length > 3 && (
                           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center">
-                            <span className="text-white text-base sm:text-xl font-bold">+{allImages.length - 4}</span>
+                            <span className="text-white text-base sm:text-xl font-bold">+{allImages.length - 3}</span>
                           </div>
                         )}
                       </div>

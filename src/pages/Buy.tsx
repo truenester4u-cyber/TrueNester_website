@@ -911,7 +911,7 @@ const Buy = () => {
                       const displayImages = allImages.length > 0 ? allImages : ["https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop"];
                       const totalPhotos = allImages.length > 0 ? allImages.length : 1;
                       const mainImage = displayImages[0];
-                      const thumbnails = displayImages.slice(1, 4);
+                      const thumbnails = displayImages.slice(1, 3);
                       const hasMultipleImages = displayImages.length > 1;
                       
                       return (
@@ -927,7 +927,7 @@ const Buy = () => {
                                   <img
                                     src={mainImage}
                                     alt={property.title}
-                                    className="w-full h-full object-contain md:object-cover group-hover:scale-105 transition-all duration-700"
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
                                   />
                                   {property.featured && (
                                     <div className="absolute top-3 left-3 md:top-4 md:left-4 z-10">
@@ -942,7 +942,7 @@ const Buy = () => {
                                     <img
                                       src={mainImage}
                                       alt={property.title}
-                                      className="w-full h-full object-contain md:object-cover group-hover:scale-105 transition-all duration-700"
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
                                     />
                                     {property.featured && (
                                       <div className="absolute top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-10">
@@ -959,12 +959,12 @@ const Buy = () => {
                                           <img
                                             src={img}
                                             alt={`${property.title} - ${idx + 2}`}
-                                            className="w-full h-full object-contain md:object-cover group-hover:scale-105 transition-all duration-700"
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
                                           />
                                           {/* Show +N overlay on last thumbnail if more images exist */}
-                                          {idx === thumbnails.length - 1 && totalPhotos > 4 && (
+                                          {idx === thumbnails.length - 1 && totalPhotos > 3 && (
                                             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center">
-                                              <span className="text-white text-base sm:text-xl md:text-2xl font-bold">+{totalPhotos - 4}</span>
+                                              <span className="text-white text-base sm:text-xl md:text-2xl font-bold">+{totalPhotos - 3}</span>
                                             </div>
                                           )}
                                         </div>

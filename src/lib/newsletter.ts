@@ -1,10 +1,7 @@
 import { NewsletterSubscriptionRequest } from '@/types/newsletter';
 import { supabase } from '@/integrations/supabase/client';
 
-// Production backend URL (Render) - fallback to localhost for development
-const isProduction = typeof window !== 'undefined' && !window.location.hostname.includes('localhost');
-const PRODUCTION_API_URL = 'https://truenester-api.onrender.com/api';
-const API_BASE_URL = import.meta.env.VITE_ADMIN_API_URL || (isProduction ? PRODUCTION_API_URL : 'http://localhost:4001/api');
+const API_BASE_URL = import.meta.env.VITE_ADMIN_API_URL || 'http://localhost:4001/api';
 
 export const subscribeToNewsletter = async (data: NewsletterSubscriptionRequest) => {
   try {

@@ -209,7 +209,7 @@ const dropdownContent: Record<string, Array<{ svgPath?: string; emoji?: string; 
         path: "/buy?type=apartment"
       },
       {
-        svgPath: "/src/assets/Villas.svg",
+        svgPath: "/villa.svg",
         title: "Villas",
         description: "Spacious villas with gardens",
         path: "/buy?type=villa"

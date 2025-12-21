@@ -101,7 +101,10 @@ const JumeirahRentals = () => {
       const baseImages = property.featured_image
         ? [property.featured_image, ...images.filter((img) => img !== property.featured_image)]
         : images;
-      const mainImage = baseImages.length > 0 ? baseImages[0] : PLACEHOLDER_IMAGE;
+      const allImages = baseImages.length > 0 ? baseImages : [PLACEHOLDER_IMAGE];
+      const mainImage = allImages[0] || PLACEHOLDER_IMAGE;
+      const thumbnails = allImages.slice(1, 3);
+      const hasMultipleImages = allImages.length > 1;
 
       return (
         <Card key={property.id} className="overflow-hidden border-0 shadow-lg hover-lift group cursor-pointer">

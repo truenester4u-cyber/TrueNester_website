@@ -471,31 +471,39 @@ const PropertyDetail = () => {
                     {/* Mobile Swipeable Gallery */}
                     <div className="block lg:hidden -mx-4 sm:-mx-6">
                       <div 
-                        className="relative w-full overflow-hidden h-[65vh] sm:h-[55vh]"
+                        className="relative w-full overflow-hidden h-[65vh] sm:h-[55vh] bg-gray-50"
                         onTouchStart={onTouchStart}
                         onTouchMove={onTouchMove}
                         onTouchEnd={() => onTouchEnd(images)}
                       >
-                        {/* Swipeable Image */}
+                        {/* Swipeable Image Container */}
                         <div 
-                          className="flex transition-transform duration-300 ease-out h-full w-full"
-                          style={{ transform: `translateX(-${mobileImageIndex * 100}%)` }}
+                          className="flex h-full"
+                          style={{ 
+                            transform: `translateX(-${mobileImageIndex * 100}%)`,
+                            transition: 'transform 300ms ease-out'
+                          }}
                         >
                           {images.length > 0 ? images.map((img, idx) => (
-                            <div key={idx} className="min-w-full h-full relative flex-shrink-0 bg-black/5 flex items-center justify-center">
+                            <div 
+                              key={idx} 
+                              className="w-full h-full flex-shrink-0 flex items-center justify-center bg-white"
+                            >
                               <img 
                                 src={img || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop"} 
                                 alt={`${property.title} - ${idx + 1}`}
-                                className="w-full h-full object-contain"
+                                className="max-w-full max-h-full object-contain"
                                 onClick={() => openLightbox(idx)}
                               />
                             </div>
                           )) : (
-                            <div className="min-w-full h-full relative flex-shrink-0 bg-black/5 flex items-center justify-center">
+                            <div 
+                              className="w-full h-full flex-shrink-0 flex items-center justify-center bg-white"
+                            >
                               <img 
                                 src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop"
                                 alt={property.title}
-                                className="w-full h-full object-contain"
+                                className="max-w-full max-h-full object-contain"
                                 onClick={() => openLightbox(0)}
                               />
                             </div>

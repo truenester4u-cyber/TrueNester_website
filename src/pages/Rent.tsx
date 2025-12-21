@@ -774,7 +774,7 @@ const Rent = () => {
                       const displayImages = allImages.length > 0 ? allImages : ["https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop"];
                       const totalPhotos = allImages.length > 0 ? allImages.length : 1;
                       const mainImage = displayImages[0];
-                      const thumbnails = displayImages.slice(1, 4);
+                      const thumbnails = displayImages.slice(1, 3);
                       const priceLabel = getDisplayPrice(property);
                       const showMonthlySuffix = !property.price_display?.trim();
                       
@@ -792,7 +792,7 @@ const Rent = () => {
                                   <img
                                     src={mainImage}
                                     alt={property.title}
-                                    className="w-full h-full object-contain md:object-cover group-hover:scale-105 transition-all duration-700"
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
                                   />
                                   
                                   {property.featured && (
@@ -804,31 +804,22 @@ const Rent = () => {
                                 
                                 {/* Right column with stacked thumbnails - Visible on all screens from 307px */}
                                 <div className="flex flex-[35] flex-col gap-1 sm:gap-2">
-                                  {thumbnails.slice(0, 2).map((img: string, idx: number) => (
+                                  {thumbnails.map((img: string, idx: number) => (
                                     <div key={idx} className="flex-1 relative overflow-hidden rounded-sm sm:rounded-md">
                                       <img
                                         src={img}
                                         alt={`${property.title} - ${idx + 2}`}
-                                        className="w-full h-full object-contain md:object-cover group-hover:scale-105 transition-all duration-700"
+                                        className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
                                       />
-                                    </div>
-                                  ))}
-                                  {/* Bottom thumbnail with photo counter overlay */}
-                                  {thumbnails.length >= 1 && (
-                                    <div className="flex-1 relative overflow-hidden rounded-sm sm:rounded-md">
-                                      <img
-                                        src={thumbnails[2] || thumbnails[0]}
-                                        alt={`${property.title}`}
-                                        className="w-full h-full object-contain md:object-cover group-hover:scale-105 transition-all duration-700"
-                                      />
-                                      {totalPhotos > 4 && (
+                                      {/* Show +N overlay on last thumbnail if more images exist */}
+                                      {idx === thumbnails.length - 1 && totalPhotos > 3 && (
                                         <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center">
-                                          <span className="text-white text-base sm:text-xl md:text-2xl font-bold">+{totalPhotos - 4}</span>
+                                          <span className="text-white text-base sm:text-xl md:text-2xl font-bold">+{totalPhotos - 3}</span>
                                         </div>
                                       )}
                                     </div>
-                                  )}
-                                  {thumbnails.length < 3 && Array.from({ length: 3 - thumbnails.length }).map((_, idx) => (
+                                  ))}
+                                  {thumbnails.length < 2 && Array.from({ length: 2 - thumbnails.length }).map((_, idx) => (
                                     <div key={`placeholder-${idx}`} className="flex-1 bg-gradient-to-br from-gray-100 to-gray-200 rounded-sm sm:rounded-md" />
                                   ))}
                                 </div>
