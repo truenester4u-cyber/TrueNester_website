@@ -3,17 +3,22 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import AdminLayout from "@/components/admin/AdminLayout";
 import {
   Building2,
   FileText,
   Eye,
+  EyeOff,
   TrendingUp,
   Plus,
   Settings,
   MessageSquare,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useShowProjects, useToggleShowProjects } from "@/hooks/useShowProjects";
 
 interface Stats {
   totalProperties: number;
@@ -27,6 +32,29 @@ interface Stats {
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { data: showProjects = true, isLoading: isLoadingShowProjects } = useShowProjects();
+  const toggleMutation = useToggleShowProjects();
+
+  const handleToggleProjects = (checked: boolean) => {
+    toggleMutation.mutate(checked, {
+      onSuccess: () => {
+        toast({
+          title: checked ? "Projects Visible" : "Projects Hidden",
+          description: checked
+            ? "All property listings are now visible on the website."
+            : "All property listings are now hidden from the website.",
+        });
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to update project visibility",
+          variant: "destructive",
+        });
+      },
+    });
+  };
+
   const [stats, setStats] = useState<Stats>({
     totalProperties: 0,
     publishedProperties: 0,
@@ -193,6 +221,37 @@ const AdminDashboard = () => {
             />
           </div>
         )}
+
+        {/* Show/Hide Projects Toggle */}
+        <Card className="border-2 border-primary/20 bg-primary/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              {showProjects ? <Eye className="h-5 w-5 text-green-600" /> : <EyeOff className="h-5 w-5 text-red-500" />}
+              Project Visibility
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Label className="text-base font-medium">
+                  {showProjects ? "Projects are visible on the website" : "Projects are hidden from the website"}
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Toggle to show or hide all property listings (projects) on the public website. This affects the homepage featured sections, Buy page, and Rent page.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 ml-4">
+                {toggleMutation.isPending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                <Switch
+                  checked={showProjects}
+                  onCheckedChange={handleToggleProjects}
+                  disabled={isLoadingShowProjects || toggleMutation.isPending}
+                  className="data-[state=checked]:bg-green-600"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Quick Actions */}
         <div>

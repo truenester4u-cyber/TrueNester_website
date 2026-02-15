@@ -22,6 +22,8 @@ import { parsePropertyTypes } from "@/lib/utils";
 import { Property } from "@/types/property";
 import { fetchBuyProperties } from "@/lib/supabase-queries";
 import { getAmenityIcon, getAmenityColor } from "@/lib/amenityIcons";
+import { getSafeImageUrl, PLACEHOLDER_IMAGE } from "@/lib/imageUtils";
+import { useShowProjects } from "@/hooks/useShowProjects";
 
 // Helper function to format price in K or M for slider display
 const formatSliderPrice = (value: number): string => {
@@ -125,6 +127,7 @@ const HeartButton = ({ propertyId, propertyTitle, propertyImage, propertyPrice }
 };
 
 const Buy = () => {
+  const { data: showProjects = true } = useShowProjects();
   const [searchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [search, setSearch] = useState("");
@@ -473,6 +476,18 @@ const Buy = () => {
 
   return (
     <Layout>
+      {!showProjects ? (
+        <div className="pt-20 min-h-[60vh] flex items-center justify-center">
+          <div className="text-center space-y-4 p-8">
+            <Building2 className="h-16 w-16 mx-auto text-muted-foreground/50" />
+            <h2 className="text-2xl font-bold text-muted-foreground">Properties Coming Soon</h2>
+            <p className="text-muted-foreground max-w-md mx-auto">Our property listings are currently being updated. Please check back soon for the latest available properties.</p>
+            <Button asChild variant="outline">
+              <Link to="/">Back to Home</Link>
+            </Button>
+          </div>
+        </div>
+      ) : (
       <div className="pt-20">
         {/* Quick Search */}
         <section className="bg-background border-b py-3 gap-4">
@@ -908,7 +923,10 @@ const Buy = () => {
                     {properties.map((property: any) => {
                       const images = property.images || [];
                       const allImages = property.featured_image ? [property.featured_image, ...images.filter((img: string) => img !== property.featured_image)] : images;
-                      const displayImages = allImages.length > 0 ? allImages : ["https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop"];
+                      // Convert storage paths to public URLs
+                      const displayImages = allImages.length > 0 
+                        ? allImages.map((img: string) => getSafeImageUrl(img, PLACEHOLDER_IMAGE))
+                        : [PLACEHOLDER_IMAGE];
                       const totalPhotos = allImages.length > 0 ? allImages.length : 1;
                       const mainImage = displayImages[0];
                       const thumbnails = displayImages.slice(1, 3);
@@ -1068,6 +1086,7 @@ const Buy = () => {
           </div>
         </section>
       </div>
+      )}
     </Layout>
   );
 };

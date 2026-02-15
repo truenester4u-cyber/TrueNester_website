@@ -9,17 +9,20 @@ import AbuDhabiLocationsGrid from "@/components/home/AbuDhabiLocationsGrid";
 import RasAlKhaimahLocationsGrid from "@/components/home/RasAlKhaimahLocationsGrid";
 import JumeirahRentals from "@/components/home/JumeirahRentals";
 import { ReviewsSection } from "@/components/reviews/ReviewsSection";
+import { useShowProjects } from "@/hooks/useShowProjects";
 
 const Index = () => {
+  const { data: showProjects = true } = useShowProjects();
+
   return (
     <Layout>
       <HeroSection />
       <DeveloperPartners />
       <StatsBar />
-      <FeaturedProperties />
+      {showProjects && <FeaturedProperties />}
       <ReviewsSection />
-      <JumeirahRentals />
-      <PropertyTypes />
+      {showProjects && <JumeirahRentals />}
+      {showProjects && <PropertyTypes />}
       <LocationsGrid />
       <AbuDhabiLocationsGrid />
       <RasAlKhaimahLocationsGrid />

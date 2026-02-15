@@ -77,6 +77,7 @@ interface SiteSettings {
   secondary_color: string;
   
   // Features
+  show_projects: boolean;
   enable_chat: boolean;
   enable_property_comparison: boolean;
   enable_saved_properties: boolean;
@@ -131,6 +132,7 @@ const Settings = () => {
     favicon_url: "",
     primary_color: "#DC2626",
     secondary_color: "#1F2937",
+    show_projects: true,
     enable_chat: true,
     enable_property_comparison: true,
     enable_saved_properties: true,
@@ -799,6 +801,16 @@ const Settings = () => {
                 <CardDescription>Enable or disable site features</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                <div className="flex items-center justify-between p-3 rounded-lg border-2 border-primary/20 bg-primary/5">
+                  <div className="space-y-0.5">
+                    <Label className="text-base font-semibold">Show/Hide All Projects</Label>
+                    <p className="text-sm text-muted-foreground">Toggle visibility of all property listings on the public website (homepage, Buy, Rent pages)</p>
+                  </div>
+                  <Switch
+                    checked={settings.show_projects}
+                    onCheckedChange={(checked) => updateSetting("show_projects", checked)}
+                  />
+                </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>Live Chat</Label>
