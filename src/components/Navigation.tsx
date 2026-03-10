@@ -203,7 +203,7 @@ const Navigation = () => {
 const dropdownContent: Record<string, Array<{ svgPath?: string; emoji?: string; title: string; description: string; path: string }>> = {    // 🏠 BUY DROPDOWN - What shows when you hover over "BUY"
     BUY: [
       {
-        svgPath: "https://www.svgrepo.com/show/1507/aparment.svg",
+        svgPath: "https://www.svgrepo.com/show/173353/apartments.svg",
         title: "Apartments",
         description: "Luxury apartments in prime locations",
         path: "/buy?type=apartment"
@@ -227,7 +227,7 @@ const dropdownContent: Record<string, Array<{ svgPath?: string; emoji?: string; 
         path: "/buy?type=townhouse"
       },
       {
-        svgPath: "https://www.svgrepo.com/show/26076/flash-apartment.svg", 
+        svgPath: "https://www.svgrepo.com/show/488306/office.svg", 
         title: "Commercials",
         description: "Premium commercial properties",
         path: "/buy?type=commercial"

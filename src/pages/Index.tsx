@@ -21,10 +21,10 @@ const Index = () => {
       <HeroSection />
       <DeveloperPartners />
       <StatsBar />
-      {showProjects && <FeaturedProperties />}
-      <ReviewsSection />
       {showRentals && <JumeirahRentals />}
-      {showProjects && <PropertyTypes />}
+      <ReviewsSection />
+      <PropertyTypes />
+      {!showProjects && <FeaturedProperties />}
       <LocationsGrid />
       <AbuDhabiLocationsGrid />
       <RasAlKhaimahLocationsGrid />
