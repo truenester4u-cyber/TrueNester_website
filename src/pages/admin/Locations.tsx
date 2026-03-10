@@ -39,11 +39,12 @@ interface Location {
   name: string;
   slug: string;
   description: string;
-  image_url: string;
-  properties_count: number;
+  image: string;
+  property_count: number;
   price_range: string;
   features: string[];
   published: boolean;
+  featured: boolean;
   city: string;
   created_at: string;
   updated_at: string;
@@ -253,6 +254,30 @@ const Locations = () => {
     }
   };
 
+  const toggleFeatured = async (id: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("locations")
+        .update({ featured: !currentStatus })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Location marked as ${!currentStatus ? "Live" : "Draft"}`,
+      });
+
+      fetchLocations();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading && !tableNotFound) {
     return (
       <AdminLayout>
@@ -432,7 +457,7 @@ UPDATE locations SET city = 'Umm Al Quwain' WHERE (name ILIKE '%Umm Al Quwain%' 
             </CardTitle>
             <CardDescription className="mt-2">
               {cityLocations.length} location{cityLocations.length !== 1 ? 's' : ''} · 
-              {' '}{cityLocations.filter(l => l.published).length} published
+              {' '}{cityLocations.filter(l => l.featured).length} live
             </CardDescription>
           </div>
           <Button 
@@ -466,9 +491,9 @@ UPDATE locations SET city = 'Umm Al Quwain' WHERE (name ILIKE '%Umm Al Quwain%' 
             {cityLocations.map((location) => (
               <div key={location.id} className="p-4 hover:bg-muted/50 transition-colors">
                 <div className="flex items-center gap-4">
-                  {location.image_url ? (
+                  {location.image ? (
                     <img
-                      src={location.image_url}
+                      src={location.image}
                       alt={location.name}
                       className="w-20 h-16 object-cover rounded-md flex-shrink-0"
                     />
@@ -483,18 +508,18 @@ UPDATE locations SET city = 'Umm Al Quwain' WHERE (name ILIKE '%Umm Al Quwain%' 
                         <h4 className="font-semibold text-base truncate">{location.name}</h4>
                         <p className="text-sm text-muted-foreground truncate">{location.slug}</p>
                         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                          <span>{location.properties_count} properties</span>
+                          <span>{location.property_count} properties</span>
                           <span>•</span>
                           <span>{location.price_range}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <Badge
-                          variant={location.published ? "default" : "secondary"}
+                          variant={location.featured ? "default" : "secondary"}
                           className="cursor-pointer text-xs"
-                          onClick={() => togglePublish(location.id, location.published)}
+                          onClick={() => toggleFeatured(location.id, location.featured)}
                         >
-                          {location.published ? (
+                          {location.featured ? (
                             <>
                               <Eye className="mr-1 h-3 w-3" />
                               Live

@@ -7,7 +7,7 @@ import { Property } from "@/types/property";
 import { fetchFeaturedProperties } from "@/lib/supabase-queries";
 import { getSafeImageUrl, getSafeImageUrls, handleImageError, PLACEHOLDER_IMAGE } from "@/lib/imageUtils";
 import { getAmenityIcon, getAmenityColor } from "@/lib/amenityIcons";
-type FeaturedFlag = "featured_dubai" | "featured_abu_dhabi" | "featured_ras_al_khaimah";
+type FeaturedFlag = "featured_dubai" | "featured_abu_dhabi" | "featured_ras_al_khaimah" | "featured_umm_al_quwain" | "featured_heart_of_europe";
 
 const PLACEHOLDER_IMAGE_FALLBACK = "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop";
 
@@ -26,20 +26,44 @@ const MAX_DUBAI_PROPERTIES = MAX_DUBAI_ROWS * MAX_DUBAI_COLUMNS;
 const developerPriority: Partial<Record<FeaturedFlag, string[]>> = {
   featured_dubai: [
     "Emaar",
-    "Damac",
     "Sobha",
-    "Bingatti",
-    "Deyaar",
-    "Reportage",
+    "Damac",
+    "Binghatti",
+    "Danube",
     "Azizi",
-    "Imtiaz",
     "Samana",
+    "Imtiyaz",
+  ],
+  featured_abu_dhabi: [
+    "Aldar Properties",
+    "Reportage Properties",
+    "One Development",
+    "Imkan Properties",
+    "Emaar",
+    "Eagle Hills",
   ],
   featured_ras_al_khaimah: [
     "BNW",
     "Sobha",
     "Range Developer",
-    "Uni Etstate",
+    "Uni Estate",
+    "Eli Seba La Mehr",
+  ],
+  featured_umm_al_quwain: [
+    "Emaar",
+    "Sobha",
+    "Damac",
+    "Binghatti",
+    "Danube",
+    "Azizi",
+    "Samana",
+    "Imtiyaz",
+  ],
+  featured_heart_of_europe: [
+    "BNW",
+    "Sobha",
+    "Range Developer",
+    "Uni Estate",
     "Eli Seba La Mehr",
   ],
 };
@@ -72,6 +96,16 @@ const FEATURED_SECTIONS: FeaturedSection[] = [
     flag: "featured_ras_al_khaimah",
     highlight: "Developments in Ras Al Khaimah near Wynn Casino",
     description: "Discover exclusive properties near the iconic Wynn Casino in Ras Al Khaimah",
+  },
+  {
+    flag: "featured_umm_al_quwain",
+    highlight: "Developments in Umm Al Quwain",
+    description: "Explore tranquil waterfront living with properties in Umm Al Quwain",
+  },
+  {
+    flag: "featured_heart_of_europe",
+    highlight: "Developments in Heart of Europe",
+    description: "Experience extraordinary island living with properties in the Heart of Europe",
   },
 ];
 
@@ -168,7 +202,10 @@ const FeaturedProperties = () => {
     const baseImages = property.featured_image
       ? [property.featured_image, ...images.filter((img) => img !== property.featured_image)]
       : images;
-    const allImages = baseImages.length > 0 ? baseImages : [PLACEHOLDER_IMAGE];
+    // Convert storage paths to public URLs
+    const allImages = baseImages.length > 0 
+      ? baseImages.map(img => getSafeImageUrl(img, PLACEHOLDER_IMAGE))
+      : [PLACEHOLDER_IMAGE];
     const mainImage = allImages[0] || PLACEHOLDER_IMAGE;
     const thumbnails = allImages.slice(1, 3);
     const hasMultipleImages = allImages.length > 1;

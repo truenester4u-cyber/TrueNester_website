@@ -237,61 +237,61 @@ const dropdownContent: Record<string, Array<{ svgPath?: string; emoji?: string; 
     // 🏢 RENT DROPDOWN - Jumeirah Rentals sub-areas
     RENT: [
       {
-        svgPath: "https://www.svgrepo.com/show/477001/beach.svg",
+        svgPath: "/jumeirah-rentals.svg",
         title: "Umm Suqeim 1",
         description: "",
         path: "/rent?location=jumeirah&subarea=umm-suqeim-1"
       },
       {
-        svgPath: "https://www.svgrepo.com/show/477001/beach.svg",
+        svgPath: "/jumeirah-rentals.svg",
         title: "Umm Suqeim 2",
         description: "",
         path: "/rent?location=jumeirah&subarea=umm-suqeim-2"
       },
       {
-        svgPath: "https://www.svgrepo.com/show/477001/beach.svg",
+        svgPath: "/jumeirah-rentals.svg",
         title: "Umm Suqeim 3",
         description: "",
         path: "/rent?location=jumeirah&subarea=umm-suqeim-3"
       },
       {
-        svgPath: "https://www.svgrepo.com/show/477001/beach.svg",
+        svgPath: "/jumeirah-rentals.svg",
         title: "Jumeirah 1",
         description: "",
         path: "/rent?location=jumeirah&subarea=jumeirah-1"
       },
       {
-        svgPath: "https://www.svgrepo.com/show/477001/beach.svg",
+        svgPath: "/jumeirah-rentals.svg",
         title: "Jumeirah 2",
         description: "",
         path: "/rent?location=jumeirah&subarea=jumeirah-2"
       },
       {
-        svgPath: "https://www.svgrepo.com/show/477001/beach.svg",
+        svgPath: "/jumeirah-rentals.svg",
         title: "Jumeirah 3",
         description: "",
         path: "/rent?location=jumeirah&subarea=jumeirah-3"
       },
       {
-        svgPath: "https://www.svgrepo.com/show/477001/beach.svg",
+        svgPath: "/jumeirah-rentals.svg",
         title: "Al Manara",
         description: "",
         path: "/rent?location=jumeirah&subarea=al-manara"
       },
       {
-        svgPath: "https://www.svgrepo.com/show/477001/beach.svg",
+        svgPath: "/jumeirah-rentals.svg",
         title: "Al Safa 1",
         description: "",
         path: "/rent?location=jumeirah&subarea=al-safa-1"
       },
       {
-        svgPath: "https://www.svgrepo.com/show/477001/beach.svg",
+        svgPath: "/jumeirah-rentals.svg",
         title: "Al Safa 2",
         description: "",
         path: "/rent?location=jumeirah&subarea=al-safa-2"
       },
       {
-        svgPath: "https://www.svgrepo.com/show/477001/beach.svg",
+        svgPath: "/jumeirah-rentals.svg",
         title: "Al Wasl",
         description: "",
         path: "/rent?location=jumeirah&subarea=al-wasl"

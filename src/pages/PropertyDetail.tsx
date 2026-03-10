@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsPropertySaved, useToggleSaveProperty } from "@/hooks/useSavedProperties";
 import { useCreateInquiry } from "@/hooks/useCustomerInquiries";
 import { sendMultiChannelNotification } from "@/lib/notifications";
+import { getSafeImageUrl, getSafeImageUrls, PLACEHOLDER_IMAGE } from "@/lib/imageUtils";
 
 const countryCodes = [
   { label: "+971", country: "UAE", flag: "🇦🇪" },
@@ -297,10 +298,11 @@ const PropertyDetail = () => {
     refetchOnWindowFocus: false, // Don't refetch when window regains focus
   });
 
-  const images: string[] = (property?.images as string[]) ?? [];
+  const rawImages: string[] = (property?.images as string[]) ?? [];
   if (property?.featured_image) {
-    if (!images.includes(property.featured_image)) images.unshift(property.featured_image);
+    if (!rawImages.includes(property.featured_image)) rawImages.unshift(property.featured_image);
   }
+  const images: string[] = getSafeImageUrls(rawImages, PLACEHOLDER_IMAGE);
 
   const formatPrice = (price?: number) =>
     typeof price === "number"
@@ -1105,10 +1107,17 @@ const PropertyDetail = () => {
                                   </span>
                                 </div>
                                 <div className="space-y-2">
-                                  {unitTypesToDisplay.map((unit: { count: number | string; type: string }, index: number) => (
+                                  {unitTypesToDisplay.map((unit: { count: number | string; type: string; size_sqft?: string }, index: number) => (
                                     <div key={index} className="flex items-center gap-4">
                                       <span className="text-xl font-bold w-14 text-[#2e7d32]">{formatUnitCount(unit.count)}</span>
-                                      <span className="text-sm font-medium text-gray-600">{unit.type}</span>
+                                      <div className="flex-1">
+                                        <span className="text-sm font-medium text-gray-600">{unit.type}</span>
+                                        {(unit.size_sqft || property.size_sqft) && (
+                                          <span className="text-xs text-gray-500 ml-2">
+                                            ({unit.size_sqft || property.size_sqft})
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
                                   ))}
                                   {showFilteredFallbackMessage && (
@@ -1117,6 +1126,11 @@ const PropertyDetail = () => {
                                     </p>
                                   )}
                                 </div>
+                                {property.total_units && (
+                                  <div className="mt-4 pt-3 border-t border-[#c8e6c9]">
+                                    <p className="text-lg font-bold text-gray-800">{property.total_units}</p>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           )}
@@ -1273,7 +1287,7 @@ const PropertyDetail = () => {
                                       <div className="relative w-full bg-muted rounded-lg overflow-hidden border-2 border-transparent hover:border-primary transition-all duration-300 shadow-md hover:shadow-xl">
                                         {plan.image ? (
                                           <img
-                                            src={plan.image}
+                                            src={getSafeImageUrl(plan.image, PLACEHOLDER_IMAGE)}
                                             alt={plan.title}
                                             className="w-full h-auto object-contain group-hover:scale-105 transition-transform duration-500"
                                             onError={(e) => {
@@ -1322,6 +1336,72 @@ const PropertyDetail = () => {
                       </Card>
                     </div>
                   )}
+
+                  {/* Trakheesi / DLD Permit Section */}
+                  {(property as any).trakheesi_permit_number || (property as any).trakheesi_qr_image ? (
+                    <div className="mt-8">
+                      <Card className="border-2 border-amber-200 shadow-md overflow-hidden">
+                        <CardContent className="p-0">
+                          <div className="flex flex-col sm:flex-row items-center gap-6 p-6">
+                            {/* QR Code Image */}
+                            {(property as any).trakheesi_qr_image && (
+                              (property as any).trakheesi_qr_link ? (
+                                <a
+                                  href={(property as any).trakheesi_qr_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex-shrink-0 w-28 h-28 sm:w-32 sm:h-32 bg-white rounded-lg border border-gray-200 p-2 flex items-center justify-center hover:border-primary hover:shadow-lg transition-all cursor-pointer group"
+                                  title="Click to verify on Dubai Land Department"
+                                  onContextMenu={(e) => e.preventDefault()}
+                                >
+                                  <div
+                                    className="w-full h-full bg-contain bg-center bg-no-repeat pointer-events-none select-none group-hover:scale-105 transition-transform"
+                                    style={{ backgroundImage: `url(${getSafeImageUrl((property as any).trakheesi_qr_image, PLACEHOLDER_IMAGE)})` }}
+                                    role="img"
+                                    aria-label="Trakheesi QR Code - DLD Permit"
+                                  />
+                                </a>
+                              ) : (
+                                <div
+                                  className="flex-shrink-0 w-28 h-28 sm:w-32 sm:h-32 bg-white rounded-lg border border-gray-200 p-2"
+                                  onContextMenu={(e) => e.preventDefault()}
+                                >
+                                  <div
+                                    className="w-full h-full bg-contain bg-center bg-no-repeat pointer-events-none select-none"
+                                    style={{ backgroundImage: `url(${getSafeImageUrl((property as any).trakheesi_qr_image, PLACEHOLDER_IMAGE)})` }}
+                                    role="img"
+                                    aria-label="Trakheesi QR Code - DLD Permit"
+                                  />
+                                </div>
+                              )
+                            )}
+                            {/* Permit Details */}
+                            <div className="text-center sm:text-left">
+                              <h4 className="text-lg font-bold text-gray-800">DLD Permit Number</h4>
+                              {(property as any).trakheesi_permit_number && (
+                                <p className="text-xl font-mono font-semibold text-primary mt-1">
+                                  {(property as any).trakheesi_permit_number}
+                                </p>
+                              )}
+                              <p className="text-xs text-muted-foreground mt-2">
+                                Verified by Dubai Land Department (Trakheesi)
+                              </p>
+                              {(property as any).trakheesi_qr_link && (
+                                <a
+                                  href={(property as any).trakheesi_qr_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
+                                >
+                                  Verify on DLD →
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Sidebar */}
@@ -1677,7 +1757,7 @@ const PropertyDetail = () => {
             <div className="w-full h-full flex items-center justify-center select-none" onDoubleClick={resetFloorPlanZoom}>
               <div className="relative flex items-center justify-center max-h-full max-w-full">
                 <img
-                  src={property.floor_plans[selectedFloorPlan]?.image || "https://placehold.co/600x400?text=Floor+Plan+Not+Available"}
+                  src={getSafeImageUrl(property.floor_plans[selectedFloorPlan]?.image, "https://placehold.co/600x400?text=Floor+Plan+Not+Available")}
                   alt={property.floor_plans[selectedFloorPlan]?.title || "Floor Plan"}
                   style={{ transform: `scale(${floorPlanZoom})`, transition: 'transform 0.15s ease-out' }}
                   className="max-w-[95vw] sm:max-w-[90vw] max-h-[85vh] sm:max-h-[80vh] object-contain rounded-lg"

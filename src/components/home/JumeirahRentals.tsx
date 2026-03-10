@@ -5,8 +5,9 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Property } from "@/types/property";
 import { fetchRentalProperties } from "@/lib/supabase-queries";
+import { getSafeImageUrl, PLACEHOLDER_IMAGE } from "@/lib/imageUtils";
 
-const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop";
+const PLACEHOLDER_IMAGE_FALLBACK = "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop";
 
 const useJumeirahRentals = () => {
   return useQuery<Property[], Error>({
@@ -101,7 +102,10 @@ const JumeirahRentals = () => {
       const baseImages = property.featured_image
         ? [property.featured_image, ...images.filter((img) => img !== property.featured_image)]
         : images;
-      const allImages = baseImages.length > 0 ? baseImages : [PLACEHOLDER_IMAGE];
+      // Convert storage paths to public URLs
+      const allImages = baseImages.length > 0 
+        ? baseImages.map(img => getSafeImageUrl(img, PLACEHOLDER_IMAGE))
+        : [PLACEHOLDER_IMAGE];
       const mainImage = allImages[0] || PLACEHOLDER_IMAGE;
       const thumbnails = allImages.slice(1, 3);
       const hasMultipleImages = allImages.length > 1;

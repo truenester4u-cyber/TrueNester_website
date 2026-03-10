@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Display Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        img { max-width: 300px; margin: 10px; border: 2px solid #ccc; }
+        .test { margin: 20px 0; padding: 15px; background: #f5f5f5; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>Image Display Test</h1>
+    
+    <div class="test">
+        <h3>Test 1: Direct Public URL</h3>
+        <img src="https://jwmbxpqpjxqclfcahwcf.supabase.co/storage/v1/object/public/property-images/0.7201752007756113.png" 
+             alt="Test 1"
+             onload="document.getElementById('test1').innerHTML = '✅ Loaded successfully'"
+             onerror="document.getElementById('test1').innerHTML = '❌ Failed to load'">
+        <p id="test1" class="loading">Loading...</p>
+    </div>
+
+    <div class="test">
+        <h3>Test 2: Another Public URL</h3>
+        <img src="https://jwmbxpqpjxqclfcahwcf.supabase.co/storage/v1/object/public/property-images/0.9210053290134576.webp" 
+             alt="Test 2"
+             onload="document.getElementById('test2').innerHTML = '✅ Loaded successfully'"
+             onerror="document.getElementById('test2').innerHTML = '❌ Failed to load'">
+        <p id="test2" class="loading">Loading...</p>
+    </div>
+
+    <div class="test">
+        <h3>Test 3: External Image (Unsplash)</h3>
+        <img src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400" 
+             alt="Test 3"
+             onload="document.getElementById('test3').innerHTML = '✅ Loaded successfully'"
+             onerror="document.getElementById('test3').innerHTML = '❌ Failed to load'">
+        <p id="test3" class="loading">Loading...</p>
+    </div>
+
+    <script>
+        console.log('Image test page loaded');
+        console.log('Check if images load successfully');
+    </script>
+</body>
+</html>

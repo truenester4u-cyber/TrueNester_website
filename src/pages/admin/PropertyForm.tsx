@@ -15,6 +15,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import { AdvancedRichTextEditor } from "@/components/admin/AdvancedRichTextEditor";
 import { AmenityIconPicker } from "@/components/admin/AmenityIconPicker";
 import { parsePropertyTypes } from "@/lib/utils";
+import { getSafeImageUrl, PLACEHOLDER_IMAGE, handleImageError } from "@/lib/imageUtils";
 
 interface PropertyFormData {
   title: string;
@@ -45,6 +46,7 @@ interface PropertyFormData {
     count: number;
     type: string;
     price_aed?: string;
+    size_sqft?: string;
   }>;
   agent_name: string;
   agent_phone: string;
@@ -56,6 +58,7 @@ interface PropertyFormData {
   featured_abu_dhabi: boolean;
   featured_ras_al_khaimah: boolean;
   featured_umm_al_quwain: boolean;
+  featured_heart_of_europe: boolean;
   published: boolean;
   payment_plan: string;
   handover_date: string;
@@ -71,6 +74,9 @@ interface PropertyFormData {
     note: string;
   }>;
   total_units: string;
+  trakheesi_permit_number: string;
+  trakheesi_qr_image: string;
+  trakheesi_qr_link: string;
 }
 
 const PROPERTY_TYPE_OPTIONS = [
@@ -100,11 +106,12 @@ const PropertyForm = () => {
   const [newAmenity, setNewAmenity] = useState("");
   const [newFloorPlan, setNewFloorPlan] = useState({ title: "", size: "", image: "" });
   const [uploadingFloorPlan, setUploadingFloorPlan] = useState(false);
-  const [newUnitType, setNewUnitType] = useState({ count: "", type: "", price_aed: "" });
+  const [newUnitType, setNewUnitType] = useState({ count: "", type: "", price_aed: "", size_sqft: "" });
   const [editingUnitIndex, setEditingUnitIndex] = useState<number | null>(null);
   const [newPaymentRow, setNewPaymentRow] = useState({ header: "", milestone: "", percentage: "", note: "" });
   const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<string[]>([]);
   const [customPropertyType, setCustomPropertyType] = useState("");
+  const [uploadingTrakheesi, setUploadingTrakheesi] = useState(false);
 
   const [formData, setFormData] = useState<PropertyFormData>({
     title: "",
@@ -142,12 +149,16 @@ const PropertyForm = () => {
     featured_abu_dhabi: false,
     featured_ras_al_khaimah: false,
     featured_umm_al_quwain: false,
+    featured_heart_of_europe: false,
     published: false,
     payment_plan: "",
     handover_date: "",
     floor_plans: [],
     payment_plan_table: [],
     total_units: "",
+    trakheesi_permit_number: "",
+    trakheesi_qr_image: "",
+    trakheesi_qr_link: "",
   });
 
   useEffect(() => {
@@ -214,6 +225,7 @@ const PropertyForm = () => {
                 count: u.count,
                 type: u.type,
                 price_aed: u.price_aed ?? "",
+                size_sqft: u.size_sqft ?? "",
               }))
             : [],
           agent_name: propertyData.agent_name || "",
@@ -226,12 +238,16 @@ const PropertyForm = () => {
           featured_abu_dhabi: propertyData.featured_abu_dhabi || false,
           featured_ras_al_khaimah: propertyData.featured_ras_al_khaimah || false,
           featured_umm_al_quwain: propertyData.featured_umm_al_quwain || false,
+          featured_heart_of_europe: propertyData.featured_heart_of_europe || false,
           published: propertyData.published || false,
           payment_plan: propertyData.payment_plan || "",
           handover_date: propertyData.handover_date || "",
           floor_plans: Array.isArray(propertyData.floor_plans) ? propertyData.floor_plans : [],
           payment_plan_table: Array.isArray(propertyData.payment_plan_table) ? propertyData.payment_plan_table : [],
           total_units: propertyData.total_units || "",
+          trakheesi_permit_number: propertyData.trakheesi_permit_number || "",
+          trakheesi_qr_image: propertyData.trakheesi_qr_image || "",
+          trakheesi_qr_link: propertyData.trakheesi_qr_link || "",
         });
         console.log('📝 ADMIN: Set floor_plans to form:', Array.isArray(propertyData.floor_plans) ? propertyData.floor_plans : []);
         setImages((propertyData.images as string[]) || []);
@@ -314,7 +330,7 @@ const PropertyForm = () => {
 
     setUploading(true);
     try {
-      const uploadedUrls: string[] = [];
+      const uploadedPaths: string[] = [];
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -322,30 +338,28 @@ const PropertyForm = () => {
         const fileName = `${Math.random()}.${fileExt}`;
         const filePath = `${fileName}`;
 
+        // Convert to ArrayBuffer to ensure binary upload and prevent corruption
+        const arrayBuffer = await file.arrayBuffer();
+        const fileBuffer = new Uint8Array(arrayBuffer);
+
         const { error: uploadError, data } = await supabase.storage
           .from("property-images")
-          .upload(filePath, file);
+          .upload(filePath, fileBuffer, {
+            contentType: file.type,
+            upsert: false
+          });
 
-        if (uploadError) throw uploadError;
-
-        // Try signed URL first (works with private buckets); fallback to public URL
-        const { data: signedData, error: signedError } = await supabase.storage
-          .from("property-images")
-          .createSignedUrl(filePath, 60 * 60 * 24 * 7);
-
-        if (!signedError && signedData?.signedUrl) {
-          uploadedUrls.push(signedData.signedUrl);
-        } else {
-          const { data: { publicUrl } } = supabase.storage
-            .from("property-images")
-            .getPublicUrl(filePath);
-          uploadedUrls.push(publicUrl);
+        if (uploadError) {
+          console.error('❌ Upload error:', uploadError);
+          throw uploadError;
         }
+
+        uploadedPaths.push(filePath);
       }
 
-      setImages((prev) => [...prev, ...uploadedUrls]);
-      if (!featuredImage && uploadedUrls.length > 0) {
-        setFeaturedImage(uploadedUrls[0]);
+      setImages((prev) => [...prev, ...uploadedPaths]);
+      if (!featuredImage && uploadedPaths.length > 0) {
+        setFeaturedImage(uploadedPaths[0]);
       }
 
       toast({
@@ -480,6 +494,7 @@ const PropertyForm = () => {
       count: unit.count.toString(),
       type: unit.type,
       price_aed: unit.price_aed || "",
+      size_sqft: unit.size_sqft || "",
     });
     setEditingUnitIndex(index);
   };
@@ -494,17 +509,18 @@ const PropertyForm = () => {
                 count: parseInt(newUnitType.count),
                 type: newUnitType.type.trim(),
                 price_aed: newUnitType.price_aed?.trim() || "",
+                size_sqft: newUnitType.size_sqft?.trim() || "",
               }
             : unit
         ),
       }));
-      setNewUnitType({ count: "", type: "", price_aed: "" });
+      setNewUnitType({ count: "", type: "", price_aed: "", size_sqft: "" });
       setEditingUnitIndex(null);
     }
   };
 
   const cancelEditingUnit = () => {
-    setNewUnitType({ count: "", type: "", price_aed: "" });
+    setNewUnitType({ count: "", type: "", price_aed: "", size_sqft: "" });
     setEditingUnitIndex(null);
   };
 
@@ -519,24 +535,22 @@ const PropertyForm = () => {
       const fileName = `floorplan_${Math.random()}.${fileExt}`;
       const filePath = `${fileName}`;
 
+      // Convert to ArrayBuffer to ensure binary upload
+      const arrayBuffer = await file.arrayBuffer();
+      const fileBuffer = new Uint8Array(arrayBuffer);
+
       const { error: uploadError } = await supabase.storage
         .from("property-images")
-        .upload(filePath, file);
+        .upload(filePath, fileBuffer, {
+          contentType: file.type,
+          upsert: false
+        });
 
       if (uploadError) throw uploadError;
 
-      const { data: signedData, error: signedError } = await supabase.storage
-        .from("property-images")
-        .createSignedUrl(filePath, 60 * 60 * 24 * 7);
-
-      if (!signedError && signedData?.signedUrl) {
-        setNewFloorPlan({ ...newFloorPlan, image: signedData.signedUrl });
-      } else {
-        const { data: { publicUrl } } = supabase.storage
-          .from("property-images")
-          .getPublicUrl(filePath);
-        setNewFloorPlan({ ...newFloorPlan, image: publicUrl });
-      }
+      // Store only the file path, not the full URL
+      // The getSafeImageUrl utility will convert it to a public URL when needed
+      setNewFloorPlan({ ...newFloorPlan, image: filePath });
 
       toast({
         title: "Success",
@@ -551,6 +565,65 @@ const PropertyForm = () => {
     } finally {
       setUploadingFloorPlan(false);
     }
+  };
+
+  const handleTrakheesiQRUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadingTrakheesi(true);
+    try {
+      const file = files[0];
+      const fileExt = file.name.split(".").pop();
+      const fileName = `trakheesi_${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const arrayBuffer = await file.arrayBuffer();
+      const fileBuffer = new Uint8Array(arrayBuffer);
+
+      const { error: uploadError } = await supabase.storage
+        .from("property-images")
+        .upload(filePath, fileBuffer, {
+          contentType: file.type,
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      handleInputChange("trakheesi_qr_image", filePath);
+
+      toast({
+        title: "Success",
+        description: "Trakheesi QR code uploaded successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingTrakheesi(false);
+    }
+  };
+
+  const extractFilenameFromUrl = (url: string): string => {
+    // If it's a signed URL, extract just the filename
+    if (url.includes('supabase.co/storage/v1/object/sign/') && url.includes('?token=')) {
+      const match = url.match(/property-images\/([^?]+)/);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+    // If it's a public URL, extract filename
+    if (url.includes('supabase.co/storage/v1/object/public/property-images/')) {
+      const match = url.match(/property-images\/(.+)$/);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+    // If it's already just a filename or external URL, return as-is
+    return url;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -575,6 +648,16 @@ const PropertyForm = () => {
         return text || null;
       };
 
+      // Convert any signed/public URLs back to filenames for storage
+      const cleanedImages = images.map(extractFilenameFromUrl);
+      const cleanedFeaturedImage = featuredImage ? extractFilenameFromUrl(featuredImage) : null;
+      
+      // Clean floor plan images too
+      const cleanedFloorPlans = formData.floor_plans.map(fp => ({
+        ...fp,
+        image: fp.image ? extractFilenameFromUrl(fp.image) : fp.image
+      }));
+
       const propertyData: Record<string, any> = {
         title: formData.title,
         slug: formData.slug,
@@ -592,8 +675,8 @@ const PropertyForm = () => {
         size_sqm: normalizeText(formData.size_sqm),
         features: formData.features,
         amenities: formData.amenities,
-        images: images,
-        featured_image: featuredImage || null,
+        images: cleanedImages,
+        featured_image: cleanedFeaturedImage,
         developer: formData.developer || null,
         completion_status: formData.completion_status || null,
         completion_date: formData.completion_date || null,
@@ -613,12 +696,16 @@ const PropertyForm = () => {
         featured_abu_dhabi: formData.featured_abu_dhabi,
         featured_ras_al_khaimah: formData.featured_ras_al_khaimah,
         featured_umm_al_quwain: formData.featured_umm_al_quwain,
+        featured_heart_of_europe: formData.featured_heart_of_europe,
         published: formData.published,
         payment_plan: formData.payment_plan || null,
         handover_date: formData.handover_date || null,
-        floor_plans: formData.floor_plans,
+        floor_plans: cleanedFloorPlans,
         payment_plan_table: formData.payment_plan_table,
         total_units: normalizeText(formData.total_units),
+        trakheesi_permit_number: formData.trakheesi_permit_number || null,
+        trakheesi_qr_image: formData.trakheesi_qr_image ? extractFilenameFromUrl(formData.trakheesi_qr_image) : null,
+        trakheesi_qr_link: formData.trakheesi_qr_link || null,
       };
 
       console.log('💾 ADMIN: Saving property with floor_plans:', formData.floor_plans);
@@ -1040,7 +1127,7 @@ const PropertyForm = () => {
               <CardTitle>Unit Types</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div>
                   <Label htmlFor="unit_count">Unit Count</Label>
                   <Input
@@ -1072,6 +1159,16 @@ const PropertyForm = () => {
                   <p className="text-xs text-muted-foreground mt-1">
                     Marketing-friendly price, e.g. "From AED 1.45M".
                   </p>
+                </div>
+                <div>
+                  <Label htmlFor="unit_size_sqft">Size (sqft/sqm)</Label>
+                  <Input
+                    id="unit_size_sqft"
+                    type="text"
+                    value={newUnitType.size_sqft}
+                    onChange={(e) => setNewUnitType({ ...newUnitType, size_sqft: e.target.value })}
+                    placeholder="e.g., 850 sqft"
+                  />
                 </div>
                 <div className="flex items-end gap-2">
                   {editingUnitIndex !== null ? (
@@ -1105,10 +1202,11 @@ const PropertyForm = () => {
                                 count: parseInt(newUnitType.count),
                                 type: newUnitType.type.trim(),
                                 price_aed: newUnitType.price_aed?.trim() || "",
+                                size_sqft: newUnitType.size_sqft?.trim() || "",
                               },
                             ],
                           }));
-                          setNewUnitType({ count: "", type: "", price_aed: "" });
+                          setNewUnitType({ count: "", type: "", price_aed: "", size_sqft: "" });
                         }
                       }}
                     >
@@ -1127,6 +1225,7 @@ const PropertyForm = () => {
                           <th className="px-4 py-2 text-left font-semibold">Units</th>
                           <th className="px-4 py-2 text-left font-semibold">Type</th>
                           <th className="px-4 py-2 text-left font-semibold">Price AED</th>
+                          <th className="px-4 py-2 text-left font-semibold">Size</th>
                           <th className="px-4 py-2 text-right font-semibold">Actions</th>
                         </tr>
                       </thead>
@@ -1137,6 +1236,9 @@ const PropertyForm = () => {
                             <td className="px-4 py-2">{unit.type}</td>
                             <td className="px-4 py-2 text-primary font-medium">
                               {unit.price_aed || "-"}
+                            </td>
+                            <td className="px-4 py-2">
+                              {unit.size_sqft || "-"}
                             </td>
                             <td className="px-4 py-2 text-right">
                               <div className="flex items-center justify-end gap-2">
@@ -1234,21 +1336,25 @@ const PropertyForm = () => {
 
               {images.length > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {images.map((image, index) => (
-                    <div
-                      key={`${image}-${index}`}
-                      className={`relative group cursor-grab ${draggedImageIndex === index ? "ring-2 ring-primary ring-offset-2" : ""}`}
-                      draggable
-                      onDragStart={() => handleImageDragStart(index)}
-                      onDragOver={handleImageDragOver}
-                      onDrop={() => handleImageDrop(index)}
-                      onDragEnd={handleImageDragEnd}
-                    >
-                      <img
-                        src={image}
-                        alt={`Property ${index + 1}`}
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
+                  {images.map((image, index) => {
+                    const imageUrl = getSafeImageUrl(image, PLACEHOLDER_IMAGE);
+                    return (
+                      <div
+                        key={`${image}-${index}`}
+                        className={`relative group cursor-grab ${draggedImageIndex === index ? "ring-2 ring-primary ring-offset-2" : ""}`}
+                        draggable
+                        onDragStart={() => handleImageDragStart(index)}
+                        onDragOver={handleImageDragOver}
+                        onDrop={() => handleImageDrop(index)}
+                        onDragEnd={handleImageDragEnd}
+                      >
+                        <img
+                          src={imageUrl}
+                          alt={`Property ${index + 1}`}
+                          className="w-full h-32 object-cover rounded-lg"
+                          onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
+                          loading="lazy"
+                        />
                       <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 bg-white/90 text-xs font-medium text-gray-700 rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
                         <GripVertical className="w-3 h-3" />
                         Drag
@@ -1275,7 +1381,8 @@ const PropertyForm = () => {
                         </button>
                       )}
                     </div>
-                  ))}
+                  );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -1461,9 +1568,10 @@ const PropertyForm = () => {
                   {newFloorPlan.image && (
                     <div className="mt-2">
                       <img 
-                        src={newFloorPlan.image} 
+                        src={getSafeImageUrl(newFloorPlan.image, PLACEHOLDER_IMAGE)} 
                         alt="Floor plan preview" 
                         className="h-20 w-auto object-contain border rounded"
+                        onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                       />
                     </div>
                   )}
@@ -1480,9 +1588,10 @@ const PropertyForm = () => {
                     <div key={index} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
                       {plan.image && (
                         <img 
-                          src={plan.image} 
+                          src={getSafeImageUrl(plan.image, PLACEHOLDER_IMAGE)} 
                           alt={plan.title}
                           className="h-16 w-16 object-cover rounded border"
+                          onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                         />
                       )}
                       <div className="flex-1">
@@ -1698,6 +1807,103 @@ const PropertyForm = () => {
             </CardContent>
           </Card>
 
+          {/* Trakheesi / DLD Permit */}
+          <Card className="border-2 border-amber-500/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span>🏛️</span> Trakheesi / DLD Permit
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Dubai Land Department permit details. Upload the QR code image (PNG) that verifies broker authenticity.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="trakheesi_permit_number">DLD Permit Number</Label>
+                <Input
+                  id="trakheesi_permit_number"
+                  value={formData.trakheesi_permit_number}
+                  onChange={(e) => handleInputChange("trakheesi_permit_number", e.target.value)}
+                  placeholder="e.g., 69400528029"
+                />
+              </div>
+              <div>
+                <Label htmlFor="trakheesi_qr_link">QR Code Redirect Link</Label>
+                <Input
+                  id="trakheesi_qr_link"
+                  value={formData.trakheesi_qr_link}
+                  onChange={(e) => handleInputChange("trakheesi_qr_link", e.target.value)}
+                  placeholder="https://dubailand.gov.ae/..."
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  When users click the QR code image, they will be redirected to this URL
+                </p>
+              </div>
+              <div>
+                <Label>Trakheesi QR Code Image (PNG)</Label>
+                <div className="mt-2">
+                  {formData.trakheesi_qr_image ? (
+                    <div className="flex items-start gap-4">
+                      <div className="relative w-32 h-32 border-2 border-dashed border-amber-400 rounded-lg overflow-hidden bg-white flex items-center justify-center">
+                        <img
+                          src={getSafeImageUrl(formData.trakheesi_qr_image, PLACEHOLDER_IMAGE)}
+                          alt="Trakheesi QR Code"
+                          className="w-full h-full object-contain p-1"
+                          onError={handleImageError}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleInputChange("trakheesi_qr_image", "")}
+                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-green-600 font-medium">QR code uploaded</p>
+                        <p className="text-xs text-muted-foreground mt-1">This QR will be displayed on the property detail page</p>
+                        <label className="inline-block mt-2">
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            className="hidden"
+                            onChange={handleTrakheesiQRUpload}
+                            disabled={uploadingTrakheesi}
+                          />
+                          <span className="text-xs text-primary hover:underline cursor-pointer">
+                            {uploadingTrakheesi ? "Uploading..." : "Replace image"}
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-amber-300 rounded-lg cursor-pointer hover:border-amber-500 hover:bg-amber-50/50 transition-colors">
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="hidden"
+                        onChange={handleTrakheesiQRUpload}
+                        disabled={uploadingTrakheesi}
+                      />
+                      {uploadingTrakheesi ? (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          <span className="text-sm">Uploading...</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                          <Upload className="h-8 w-8" />
+                          <span className="text-sm font-medium">Upload Trakheesi QR Code</span>
+                          <span className="text-xs">PNG, JPG or WebP</span>
+                        </div>
+                      )}
+                    </label>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Status - Only for Sale Properties */}
           {formData.purpose === 'sale' && (
           <Card>
@@ -1753,6 +1959,14 @@ const PropertyForm = () => {
                     id="featured_umm_al_quwain"
                     checked={formData.featured_umm_al_quwain}
                     onCheckedChange={(checked) => handleInputChange("featured_umm_al_quwain", checked)}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="featured_heart_of_europe">Featured in Heart of Europe</Label>
+                  <Switch
+                    id="featured_heart_of_europe"
+                    checked={formData.featured_heart_of_europe}
+                    onCheckedChange={(checked) => handleInputChange("featured_heart_of_europe", checked)}
                   />
                 </div>
               </div>

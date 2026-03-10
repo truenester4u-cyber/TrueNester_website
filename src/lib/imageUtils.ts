@@ -1,12 +1,14 @@
 /**
  * Utility functions for handling image URLs and preventing 406 errors
  */
+import { supabase } from "@/integrations/supabase/client";
 
 const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop";
 
 /**
  * Validates and sanitizes image URL to prevent 406 errors
- * @param url - Image URL to validate
+ * Converts Supabase storage paths to public URLs
+ * @param url - Image URL or storage path to validate
  * @param fallback - Fallback image URL if validation fails
  * @returns Valid image URL or fallback
  */
@@ -17,20 +19,25 @@ export const getSafeImageUrl = (url: string | null | undefined, fallback: string
 
   const cleanUrl = url.trim();
 
-  // Check if it's a valid URL
   try {
-    // If it's a Supabase storage URL, ensure it has proper format
-    if (cleanUrl.includes('supabase.co/storage')) {
-      // Add cache-busting and proper headers via URL params
-      const urlObj = new URL(cleanUrl);
-      // Don't add params if already present
-      if (!urlObj.searchParams.has('t')) {
-        // Just return the URL as-is, let browser handle caching
-        return cleanUrl;
+    // If it's a SIGNED URL (with token), extract the filename and convert to public URL
+    if (cleanUrl.includes('supabase.co/storage/v1/object/sign/') && cleanUrl.includes('?token=')) {
+      const match = cleanUrl.match(/property-images\/([^?]+)/);
+      if (match && match[1]) {
+        const filename = match[1];
+        const { data } = supabase.storage.from('property-images').getPublicUrl(filename);
+        if (data?.publicUrl) {
+          return data.publicUrl;
+        }
       }
     }
 
-    // For external URLs (Unsplash, etc.), validate format
+    // If it's already a PUBLIC Supabase storage URL, return as-is
+    if (cleanUrl.includes('supabase.co/storage/v1/object/public/')) {
+      return cleanUrl;
+    }
+
+    // For external URLs (Unsplash, etc.), return as-is
     if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
       return cleanUrl;
     }
@@ -40,11 +47,18 @@ export const getSafeImageUrl = (url: string | null | undefined, fallback: string
       return cleanUrl;
     }
 
+    // If it's a storage path (e.g., "0.123456.jpg"), convert to public URL
+    const { data } = supabase.storage.from('property-images').getPublicUrl(cleanUrl);
+    
+    if (data?.publicUrl) {
+      return data.publicUrl;
+    }
+
     // Invalid format, use fallback
-    console.warn('⚠️ Invalid image URL format:', cleanUrl);
+    console.warn('⚠️ Invalid image URL:', cleanUrl);
     return fallback;
   } catch (error) {
-    console.warn('⚠️ Error parsing image URL:', error);
+    console.error('❌ Error processing image URL:', error);
     return fallback;
   }
 };
@@ -105,6 +119,75 @@ export const getSafeImageUrls = (
     .map(url => getSafeImageUrl(url, fallback));
 
   return safeUrls.length > 0 ? safeUrls : [fallback];
+};
+
+/**
+ * Extracts the storage filename from a URL or path.
+ * Returns null for external URLs that aren't in our Supabase storage.
+ */
+const extractFilename = (urlOrPath: string | null | undefined): string | null => {
+  if (!urlOrPath || typeof urlOrPath !== 'string') return null;
+  const trimmed = urlOrPath.trim();
+  if (!trimmed) return null;
+
+  // Already a bare filename (e.g. "0.12345.jpg")
+  if (!trimmed.startsWith('http') && !trimmed.startsWith('/')) return trimmed;
+
+  // Supabase storage URL — extract filename after bucket name
+  const match = trimmed.match(/property-images\/([^?]+)/);
+  if (match?.[1]) return decodeURIComponent(match[1]);
+
+  // External URL (Unsplash etc.) — not in our storage
+  return null;
+};
+
+/**
+ * Collects all storage filenames associated with a property record.
+ * Covers: images array, featured_image, trakheesi_qr_image, floor_plan images.
+ */
+export const getPropertyStorageFiles = (property: Record<string, any>): string[] => {
+  const files: string[] = [];
+
+  // images array
+  const images = property.images;
+  if (Array.isArray(images)) {
+    images.forEach((img: any) => {
+      const f = extractFilename(typeof img === 'string' ? img : img?.url ?? img?.src);
+      if (f) files.push(f);
+    });
+  }
+
+  // featured_image
+  const fi = extractFilename(property.featured_image);
+  if (fi) files.push(fi);
+
+  // trakheesi_qr_image
+  const qr = extractFilename(property.trakheesi_qr_image);
+  if (qr) files.push(qr);
+
+  // floor_plans[].image
+  const plans = property.floor_plans;
+  if (Array.isArray(plans)) {
+    plans.forEach((plan: any) => {
+      const f = extractFilename(plan?.image);
+      if (f) files.push(f);
+    });
+  }
+
+  // Deduplicate
+  return [...new Set(files)];
+};
+
+/**
+ * Removes a list of files from the property-images storage bucket.
+ * Logs errors but does not throw so deletion can proceed.
+ */
+export const deletePropertyStorageFiles = async (filenames: string[]): Promise<void> => {
+  if (filenames.length === 0) return;
+  const { error } = await supabase.storage.from('property-images').remove(filenames);
+  if (error) {
+    console.error('Failed to delete storage files:', error.message, filenames);
+  }
 };
 
 export { PLACEHOLDER_IMAGE };

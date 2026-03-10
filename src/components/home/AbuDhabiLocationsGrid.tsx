@@ -10,7 +10,7 @@ interface Location {
   id: string;
   name: string;
   slug: string;
-  image_url: string | null;
+  image: string | null;
   property_count: number;
   featured: boolean;
   city?: string;
@@ -71,7 +71,12 @@ const AbuDhabiLocationsGrid = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {locations.map((location) => (
+          {locations.map((location) => {
+            // Fallback: check both image and image_url columns
+            const imageUrl = location.image || (location as any).image_url || downtownImg;
+            const propertyCount = location.property_count || (location as any).properties_count || 0;
+            
+            return (
             <Card
               key={location.id}
               className="group cursor-pointer hover-lift border-0 shadow-lg overflow-hidden"
@@ -79,7 +84,7 @@ const AbuDhabiLocationsGrid = () => {
               <Link to="/locations">
                 <div className="relative h-48 overflow-hidden">
                   <img
-                     src={getSafeImageUrl(location.image_url, downtownImg)}
+                     src={getSafeImageUrl(imageUrl, downtownImg)}
                     alt={location.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     onError={(e) => handleImageError(e, downtownImg)}
@@ -91,7 +96,7 @@ const AbuDhabiLocationsGrid = () => {
                       <MapPin className="h-4 w-4" />
                       {location.name}
                     </h3>
-                     <p className="text-sm text-white/80">{location.property_count} Properties</p>
+                     <p className="text-sm text-white/80">{propertyCount} Properties</p>
                   </div>
                 </div>
                 <CardContent className="p-4">
@@ -99,7 +104,8 @@ const AbuDhabiLocationsGrid = () => {
                 </CardContent>
               </Link>
             </Card>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>

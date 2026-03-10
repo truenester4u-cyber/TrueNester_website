@@ -56,7 +56,7 @@ export const fetchFeaturedProperties = async (): Promise<any[]> => {
 
   // Filter for featured properties
   const featuredData = data.filter((p: any) => 
-    p.featured_dubai || p.featured_abu_dhabi || p.featured_ras_al_khaimah || p.featured
+    p.featured_dubai || p.featured_abu_dhabi || p.featured_ras_al_khaimah || p.featured_umm_al_quwain || p.featured_heart_of_europe || p.featured
   );
 
   if (featuredData.length > 0) {

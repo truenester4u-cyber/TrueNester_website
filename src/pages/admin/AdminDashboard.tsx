@@ -16,9 +16,11 @@ import {
   Settings,
   MessageSquare,
   Loader2,
+  Home,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useShowProjects, useToggleShowProjects } from "@/hooks/useShowProjects";
+import { useShowRentals, useToggleShowRentals } from "@/hooks/useShowRentals";
 
 interface Stats {
   totalProperties: number;
@@ -34,6 +36,8 @@ const AdminDashboard = () => {
   const { toast } = useToast();
   const { data: showProjects = true, isLoading: isLoadingShowProjects } = useShowProjects();
   const toggleMutation = useToggleShowProjects();
+  const { data: showRentals = true, isLoading: isLoadingShowRentals } = useShowRentals();
+  const toggleRentalsMutation = useToggleShowRentals();
 
   const handleToggleProjects = (checked: boolean) => {
     toggleMutation.mutate(checked, {
@@ -49,6 +53,26 @@ const AdminDashboard = () => {
         toast({
           title: "Error",
           description: error.message || "Failed to update project visibility",
+          variant: "destructive",
+        });
+      },
+    });
+  };
+
+  const handleToggleRentals = (checked: boolean) => {
+    toggleRentalsMutation.mutate(checked, {
+      onSuccess: () => {
+        toast({
+          title: checked ? "Rentals Visible" : "Rentals Hidden",
+          description: checked
+            ? "Rental listings are now visible on the website."
+            : "Rental listings are now hidden from the website.",
+        });
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to update rental visibility",
           variant: "destructive",
         });
       },
@@ -247,6 +271,37 @@ const AdminDashboard = () => {
                   onCheckedChange={handleToggleProjects}
                   disabled={isLoadingShowProjects || toggleMutation.isPending}
                   className="data-[state=checked]:bg-green-600"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Show/Hide Rentals Toggle */}
+        <Card className="border-2 border-blue-500/20 bg-blue-500/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              {showRentals ? <Home className="h-5 w-5 text-blue-600" /> : <EyeOff className="h-5 w-5 text-red-500" />}
+              Rental Visibility
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Label className="text-base font-medium">
+                  {showRentals ? "Rentals are visible on the website" : "Rentals are hidden from the website"}
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Toggle to show or hide all rental listings on the public website. This affects the Rent page and homepage rental sections.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 ml-4">
+                {toggleRentalsMutation.isPending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                <Switch
+                  checked={showRentals}
+                  onCheckedChange={handleToggleRentals}
+                  disabled={isLoadingShowRentals || toggleRentalsMutation.isPending}
+                  className="data-[state=checked]:bg-blue-600"
                 />
               </div>
             </div>

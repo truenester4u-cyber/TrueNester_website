@@ -78,6 +78,7 @@ interface SiteSettings {
   
   // Features
   show_projects: boolean;
+  show_rentals: boolean;
   enable_chat: boolean;
   enable_property_comparison: boolean;
   enable_saved_properties: boolean;
@@ -133,6 +134,7 @@ const Settings = () => {
     primary_color: "#DC2626",
     secondary_color: "#1F2937",
     show_projects: true,
+    show_rentals: true,
     enable_chat: true,
     enable_property_comparison: true,
     enable_saved_properties: true,
@@ -809,6 +811,16 @@ const Settings = () => {
                   <Switch
                     checked={settings.show_projects}
                     onCheckedChange={(checked) => updateSetting("show_projects", checked)}
+                  />
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg border-2 border-blue-500/20 bg-blue-500/5">
+                  <div className="space-y-0.5">
+                    <Label className="text-base font-semibold">Show/Hide Rentals</Label>
+                    <p className="text-sm text-muted-foreground">Toggle visibility of rental listings on the public website (Rent page, homepage rental sections)</p>
+                  </div>
+                  <Switch
+                    checked={settings.show_rentals}
+                    onCheckedChange={(checked) => updateSetting("show_rentals", checked)}
                   />
                 </div>
                 <div className="flex items-center justify-between">

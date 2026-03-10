@@ -22,7 +22,7 @@ import { parsePropertyTypes } from "@/lib/utils";
 import { Property } from "@/types/property";
 import { fetchRentalProperties } from "@/lib/supabase-queries";
 import { getSafeImageUrl, PLACEHOLDER_IMAGE } from "@/lib/imageUtils";
-import { useShowProjects } from "@/hooks/useShowProjects";
+import { useShowRentals } from "@/hooks/useShowRentals";
 
 const usePublishedRentals = (search: string) => {
   return useQuery<Property[], Error>({
@@ -91,7 +91,7 @@ const HeartButton = ({ propertyId, propertyTitle, propertyImage, propertyPrice }
 };
 
 const Rent = () => {
-  const { data: showProjects = true } = useShowProjects();
+  const { data: showRentals = true } = useShowRentals();
   const [searchParams, setSearchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [search, setSearch] = useState("");
@@ -436,7 +436,7 @@ const Rent = () => {
 
   return (
     <Layout>
-      {!showProjects ? (
+      {!showRentals ? (
         <div className="pt-20 min-h-[60vh] flex items-center justify-center">
           <div className="text-center space-y-4 p-8">
             <MapPin className="h-16 w-16 mx-auto text-muted-foreground/50" />

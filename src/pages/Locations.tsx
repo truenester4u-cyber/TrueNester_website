@@ -13,8 +13,8 @@ interface Location {
   slug: string;
   city: string;
   description: string;
-  image_url: string;
-  properties_count: number;
+  image: string;
+  property_count: number;
   price_range: string;
   features: string[];
   published: boolean;
@@ -37,7 +37,16 @@ const fetchLocations = async (): Promise<Location[]> => {
       return [];
     }
 
-    console.log("✅ Locations loaded:", { count: data.length });
+    // Debug: Log first location's image field
+    console.log("✅ Locations loaded:", { 
+      count: data.length,
+      sample: data[0] ? {
+        name: data[0].name,
+        image: data[0].image,
+        image_url: (data[0] as any).image_url,
+        hasImage: !!(data[0].image || (data[0] as any).image_url)
+      } : null
+    });
     return data as Location[];
   } catch (err) {
     console.error("❌ Exception fetching locations:", err);
@@ -72,7 +81,12 @@ const Locations = () => {
   const abuDhabiLocations = locations.filter(loc => loc.city === 'Abu Dhabi');
   const rakLocations = locations.filter(loc => loc.city === 'Ras Al Khaimah');
 
-  const renderLocationCard = (location: Location) => (
+  const renderLocationCard = (location: Location) => {
+    // Fallback: check both image and image_url columns
+    const imageUrl = location.image || (location as any).image_url || downtownImg;
+    const propertyCount = location.property_count || (location as any).properties_count || 0;
+    
+    return (
     <Card
       key={location.id}
       className="group cursor-pointer hover-lift border-0 shadow-lg overflow-hidden"
@@ -80,7 +94,7 @@ const Locations = () => {
       <Link to="/buy">
         <div className="relative h-64 overflow-hidden">
           <img
-            src={location.image_url || downtownImg}
+            src={imageUrl}
             alt={location.name}
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
             onError={(e) => {
@@ -93,7 +107,7 @@ const Locations = () => {
               <MapPin className="h-5 w-5" />
               {location.name}
             </h3>
-            <p className="text-sm text-white/80 mb-2">{location.properties_count} Properties Available</p>
+            <p className="text-sm text-white/80 mb-2">{propertyCount} Properties Available</p>
             <p className="text-sm text-white/90">{location.price_range}</p>
           </div>
         </div>
@@ -113,7 +127,8 @@ const Locations = () => {
         </CardContent>
       </Link>
     </Card>
-  );
+    );
+  };
 
   return (
     <Layout>

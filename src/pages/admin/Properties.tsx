@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Pencil, Trash2, Plus, Search, Eye } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { parsePropertyTypes } from "@/lib/utils";
+import { getSafeImageUrl, PLACEHOLDER_IMAGE, getPropertyStorageFiles, deletePropertyStorageFiles } from "@/lib/imageUtils";
 
 interface Property {
   id: string;
@@ -120,6 +121,18 @@ const Properties = () => {
     if (!deleteId) return;
 
     try {
+      // Fetch the full property to get image paths before deleting
+      const { data: prop } = await supabase
+        .from("properties")
+        .select("images, featured_image, trakheesi_qr_image, floor_plans")
+        .eq("id", deleteId)
+        .single();
+
+      if (prop) {
+        const files = getPropertyStorageFiles(prop);
+        await deletePropertyStorageFiles(files);
+      }
+
       const { error } = await supabase
         .from("properties")
         .delete()
@@ -148,6 +161,18 @@ const Properties = () => {
     if (selectedIds.length === 0) return;
 
     try {
+      // Fetch all properties to get their image paths before deleting
+      const { data: props } = await supabase
+        .from("properties")
+        .select("images, featured_image, trakheesi_qr_image, floor_plans")
+        .in("id", selectedIds);
+
+      if (props && props.length > 0) {
+        const allFiles = props.flatMap((p: any) => getPropertyStorageFiles(p));
+        const uniqueFiles = [...new Set(allFiles)];
+        await deletePropertyStorageFiles(uniqueFiles);
+      }
+
       const { error } = await supabase
         .from("properties")
         .delete()
@@ -328,7 +353,7 @@ const Properties = () => {
                     <TableCell>
                       {property.featured_image ? (
                         <img
-                          src={property.featured_image}
+                          src={getSafeImageUrl(property.featured_image, PLACEHOLDER_IMAGE)}
                           alt={property.title}
                           className="w-16 h-16 object-cover rounded"
                         />

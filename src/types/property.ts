@@ -26,6 +26,7 @@ export interface Property {
   featured_abu_dhabi: boolean;
   featured_ras_al_khaimah: boolean;
   featured_umm_al_quwain: boolean;
+  featured_heart_of_europe: boolean;
   published: boolean;
   created_at: string;
   updated_at: string | null;

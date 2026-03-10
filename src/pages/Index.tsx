@@ -10,9 +10,11 @@ import RasAlKhaimahLocationsGrid from "@/components/home/RasAlKhaimahLocationsGr
 import JumeirahRentals from "@/components/home/JumeirahRentals";
 import { ReviewsSection } from "@/components/reviews/ReviewsSection";
 import { useShowProjects } from "@/hooks/useShowProjects";
+import { useShowRentals } from "@/hooks/useShowRentals";
 
 const Index = () => {
   const { data: showProjects = true } = useShowProjects();
+  const { data: showRentals = true } = useShowRentals();
 
   return (
     <Layout>
@@ -21,7 +23,7 @@ const Index = () => {
       <StatsBar />
       {showProjects && <FeaturedProperties />}
       <ReviewsSection />
-      {showProjects && <JumeirahRentals />}
+      {showRentals && <JumeirahRentals />}
       {showProjects && <PropertyTypes />}
       <LocationsGrid />
       <AbuDhabiLocationsGrid />
