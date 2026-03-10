@@ -24,7 +24,7 @@ const Index = () => {
       {showRentals && <JumeirahRentals />}
       <ReviewsSection />
       <PropertyTypes />
-      {!showProjects && <FeaturedProperties />}
+      {showProjects && <FeaturedProperties />}
       <LocationsGrid />
       <AbuDhabiLocationsGrid />
       <RasAlKhaimahLocationsGrid />
