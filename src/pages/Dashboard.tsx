@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSavedProperties } from "@/hooks/useSavedProperties";
 import { useCustomerInquiries, useInquiryStats } from "@/hooks/useCustomerInquiries";
-
+import { getSafeImageUrl, handleImageError, PLACEHOLDER_IMAGE } from "@/lib/imageUtils";
 import { formatDistanceToNow } from "date-fns";
 
 interface Profile {
@@ -234,9 +234,10 @@ const Dashboard = () => {
                         <Card key={saved.id} className="overflow-hidden">
                           <div className="aspect-video relative">
                             <img
-                              src={saved.property.featured_image || "/placeholder.svg"}
+                              src={getSafeImageUrl(saved.property.featured_image, PLACEHOLDER_IMAGE)}
                               alt={saved.property.title || "Property"}
                               className="object-cover w-full h-full"
+                              onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                             />
                           </div>
                           <CardContent className="p-4">

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { NewsletterForm } from "@/components/NewsletterForm";
+import { getSafeImageUrl, handleImageError, PLACEHOLDER_IMAGE } from "@/lib/imageUtils";
 
 interface BlogPost {
   id: string;
@@ -112,9 +113,10 @@ const Blog = () => {
                       <Card className="h-full overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-muted/40">
                         <div className="aspect-video overflow-hidden bg-muted">
                           <img
-                            src={post.featured_image || "/placeholder.svg"}
+                            src={getSafeImageUrl(post.featured_image, PLACEHOLDER_IMAGE)}
                             alt={post.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            onError={(event) => handleImageError(event, PLACEHOLDER_IMAGE)}
                           />
                         </div>
                         <div className="p-6 flex flex-col gap-3">

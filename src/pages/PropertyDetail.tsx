@@ -21,7 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsPropertySaved, useToggleSaveProperty } from "@/hooks/useSavedProperties";
 import { useCreateInquiry } from "@/hooks/useCustomerInquiries";
 import { sendMultiChannelNotification } from "@/lib/notifications";
-import { getSafeImageUrl, getSafeImageUrls, PLACEHOLDER_IMAGE } from "@/lib/imageUtils";
+import { getSafeImageUrl, getSafeImageUrls, PLACEHOLDER_IMAGE, handleImageError } from "@/lib/imageUtils";
 
 const countryCodes = [
   { label: "+971", country: "UAE", flag: "🇦🇪" },
@@ -492,10 +492,11 @@ const PropertyDetail = () => {
                               className="w-full h-full flex-shrink-0 flex items-center justify-center bg-white"
                             >
                               <img 
-                                src={img || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop"} 
+                                src={img || PLACEHOLDER_IMAGE} 
                                 alt={`${property.title} - ${idx + 1}`}
                                 className="max-w-full max-h-full object-contain"
                                 onClick={() => openLightbox(idx)}
+                                onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                               />
                             </div>
                           )) : (
@@ -654,9 +655,10 @@ const PropertyDetail = () => {
                         {/* Main Large Image - Left Side */}
                         <div className="flex-[70] relative cursor-pointer rounded-l-xl overflow-hidden group" onClick={() => openLightbox(0)}>
                           <img 
-                            src={images[0] || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop"} 
+                            src={images[0] || PLACEHOLDER_IMAGE} 
                             alt={property.title} 
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                            onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                           />
                           <img
                             src={TrueNesterLogo}
@@ -696,6 +698,7 @@ const PropertyDetail = () => {
                                 src={images[1]} 
                                 alt={`${property.title} - 2`} 
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                                onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                               />
                             </div>
                           )}
@@ -707,6 +710,7 @@ const PropertyDetail = () => {
                                 src={images[2]} 
                                 alt={`${property.title} - 3`} 
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                                onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                               />
                               {images.length > 3 && (
                                 <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center">
@@ -1610,10 +1614,11 @@ const PropertyDetail = () => {
                 <div className="relative w-full h-[calc(100vh-200px)] flex items-center justify-center px-4">
                   <div className="relative w-full h-full flex items-center justify-center">
                     <img
-                      src={images[currentImageIndex] || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop"}
+                      src={images[currentImageIndex] || PLACEHOLDER_IMAGE}
                       alt={`${property?.title || "Property"} - Image ${currentImageIndex + 1}`}
                       className="max-w-full max-h-full object-contain rounded-2xl"
                       draggable={false}
+                      onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                     />
                     <img
                       src={TrueNesterLogo}
@@ -1626,11 +1631,12 @@ const PropertyDetail = () => {
               ) : (
                 <div className="relative flex items-center justify-center max-h-full max-w-full">
                   <img
-                    src={images[currentImageIndex] || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop"}
+                    src={images[currentImageIndex] || PLACEHOLDER_IMAGE}
                     alt={`${property?.title || "Property"} - Image ${currentImageIndex + 1}`}
                     style={{ transform: `scale(${zoom})`, transition: initialDistanceRef.current === 0 ? 'transform 0.15s ease-out' : 'none' }}
                     className="max-w-[95vw] sm:max-w-[90vw] max-h-[85vh] sm:max-h-[80vh] object-contain rounded-lg touch-none user-select-none"
                     draggable={false}
+                    onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                   />
                   <img
                     src={TrueNesterLogo}
@@ -1662,9 +1668,10 @@ const PropertyDetail = () => {
                       }`}
                     >
                       <img 
-                        src={img || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=200&auto=format&fit=crop"} 
+                        src={img || PLACEHOLDER_IMAGE} 
                         alt={`Thumbnail ${idx + 1}`}
                         className="w-full h-full object-cover"
+                        onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                       />
                     </button>
                   ))}

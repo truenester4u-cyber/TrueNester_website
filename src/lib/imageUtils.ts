@@ -20,16 +20,20 @@ export const getSafeImageUrl = (url: string | null | undefined, fallback: string
   const cleanUrl = url.trim();
 
   try {
-    // If it's a SIGNED URL (with token), extract the filename and convert to public URL
+    // For blob URLs (in-memory previews), return as-is
+    if (cleanUrl.startsWith('blob:')) {
+      return cleanUrl;
+    }
+
+    // If it's a SIGNED URL (with token) — convert to permanent public URL
+    // Signed URLs expire; the bucket is public so public URLs always work
     if (cleanUrl.includes('supabase.co/storage/v1/object/sign/') && cleanUrl.includes('?token=')) {
       const match = cleanUrl.match(/property-images\/([^?]+)/);
       if (match && match[1]) {
-        const filename = match[1];
-        const { data } = supabase.storage.from('property-images').getPublicUrl(filename);
-        if (data?.publicUrl) {
-          return data.publicUrl;
-        }
+        const { data } = supabase.storage.from('property-images').getPublicUrl(match[1]);
+        return data?.publicUrl || fallback;
       }
+      return fallback;
     }
 
     // If it's already a PUBLIC Supabase storage URL, return as-is

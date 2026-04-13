@@ -22,7 +22,7 @@ import { parsePropertyTypes } from "@/lib/utils";
 import { Property } from "@/types/property";
 import { fetchBuyProperties } from "@/lib/supabase-queries";
 import { getAmenityIcon, getAmenityColor } from "@/lib/amenityIcons";
-import { getSafeImageUrl, PLACEHOLDER_IMAGE } from "@/lib/imageUtils";
+import { getSafeImageUrl, handleImageError, PLACEHOLDER_IMAGE } from "@/lib/imageUtils";
 import { useShowProjects } from "@/hooks/useShowProjects";
 
 // Helper function to format price in K or M for slider display
@@ -946,6 +946,7 @@ const Buy = () => {
                                     src={mainImage}
                                     alt={property.title}
                                     className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                                    onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                                   />
                                   {property.featured && (
                                     <div className="absolute top-3 left-3 md:top-4 md:left-4 z-10">
@@ -961,6 +962,7 @@ const Buy = () => {
                                       src={mainImage}
                                       alt={property.title}
                                       className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                                      onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                                     />
                                     {property.featured && (
                                       <div className="absolute top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-10">
@@ -978,6 +980,7 @@ const Buy = () => {
                                             src={img}
                                             alt={`${property.title} - ${idx + 2}`}
                                             className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                                            onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                                           />
                                           {/* Show +N overlay on last thumbnail if more images exist */}
                                           {idx === thumbnails.length - 1 && totalPhotos > 3 && (

@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Calendar } from "lucide-react";
+import { getSafeImageUrl, handleImageError, PLACEHOLDER_IMAGE } from "@/lib/imageUtils";
 
 interface BlogPost {
   id: string;
@@ -67,15 +68,14 @@ const BlogPostDetail = () => {
 
         {post && (
           <article className="max-w-4xl mx-auto space-y-6">
-            {post.featured_image && (
-              <div className="overflow-hidden rounded-xl border border-muted">
-                <img
-                  src={post.featured_image}
-                  alt={post.title}
-                  className="w-full h-[360px] md:h-[480px] object-cover"
-                />
-              </div>
-            )}
+            <div className="overflow-hidden rounded-xl border border-muted">
+              <img
+                src={getSafeImageUrl(post.featured_image, PLACEHOLDER_IMAGE)}
+                alt={post.title}
+                className="w-full h-[360px] md:h-[480px] object-cover"
+                onError={(event) => handleImageError(event, PLACEHOLDER_IMAGE)}
+              />
+            </div>
 
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
               <Badge variant="secondary">{post.category}</Badge>

@@ -11,6 +11,7 @@ import { Heart, MapPin, DollarSign, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import { getSafeImageUrl, handleImageError, PLACEHOLDER_IMAGE } from "@/lib/imageUtils";
 
 interface SavedProperty {
   id: string;
@@ -154,13 +155,12 @@ const FavoritesPage = () => {
                 >
                   <Link to={`/property/${property.id}`}>
                     <div className="relative h-48 overflow-hidden bg-gray-300">
-                      {property.featured_image && (
-                        <img
-                          src={property.featured_image}
-                          alt={property.title}
-                          className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
-                        />
-                      )}
+                      <img
+                        src={getSafeImageUrl(property.featured_image, PLACEHOLDER_IMAGE)}
+                        alt={property.title}
+                        className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
+                        onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
+                      />
                     </div>
 
                     <div className="p-4">

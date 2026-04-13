@@ -205,4 +205,60 @@ All colors MUST be HSL.
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* Custom admin scrollbar — thin, pill-shaped, auto-hides when not scrolling */
+  .admin-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  .admin-scrollbar::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .admin-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .admin-scrollbar::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 9999px;
+    transition: background 0.2s;
+  }
+
+  .admin-scrollbar:hover::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+  }
+
+  .admin-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.45);
+  }
+
+  /* Horizontal scrollbar variant for admin tables */
+  .admin-scrollbar-x {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  .admin-scrollbar-x::-webkit-scrollbar {
+    height: 5px;
+  }
+
+  .admin-scrollbar-x::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .admin-scrollbar-x::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 9999px;
+    transition: background 0.2s;
+  }
+
+  .admin-scrollbar-x:hover::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+  }
+
+  .admin-scrollbar-x::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.45);
+  }
 }

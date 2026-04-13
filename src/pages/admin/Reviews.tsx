@@ -138,7 +138,7 @@ export default function AdminReviews() {
   };
 
   const ReviewsTable = ({ data }: { data: Review[] }) => (
-    <div className="rounded-md border bg-white">
+    <div className="rounded-md border bg-white overflow-x-auto admin-scrollbar-x">
       <Table>
         <TableHeader>
           <TableRow>

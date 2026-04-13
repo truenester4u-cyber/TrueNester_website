@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Upload, X } from "lucide-react";
 import { z } from "zod";
+import { getSafeImageUrl, handleImageError, PLACEHOLDER_IMAGE } from "@/lib/imageUtils";
 
 const postSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters").max(200),
@@ -77,7 +78,7 @@ const BlogPostForm = () => {
       setCategory(data.category);
       setPublished(data.published);
       if (data.featured_image) {
-        setImagePreview(data.featured_image);
+        setImagePreview(getSafeImageUrl(data.featured_image, PLACEHOLDER_IMAGE));
       }
     } catch (error: any) {
       toast({
@@ -114,6 +115,7 @@ const BlogPostForm = () => {
     }
 
     setImageFile(file);
+    setImageUrl("");
     const reader = new FileReader();
     reader.onloadend = () => {
       setImagePreview(reader.result as string);
@@ -122,8 +124,27 @@ const BlogPostForm = () => {
   };
 
   const uploadImage = async (): Promise<string | null> => {
-    // For now, just use the imageUrl directly without file upload
-    // File uploads will work once RLS policies are properly configured
+    if (imageFile) {
+      const fileExt = imageFile.name.split(".").pop();
+      const fileName = `blog_${Date.now()}_${Math.random().toString(36).slice(2)}.${fileExt}`;
+
+      const arrayBuffer = await imageFile.arrayBuffer();
+      const fileBuffer = new Uint8Array(arrayBuffer);
+
+      const { error: uploadError } = await supabase.storage
+        .from("property-images")
+        .upload(fileName, fileBuffer, {
+          contentType: imageFile.type,
+          upsert: false,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      return fileName;
+    }
+
     return imageUrl || null;
   };
 
@@ -141,9 +162,9 @@ const BlogPostForm = () => {
       });
 
       setLoading(true);
+  setUploading(true);
 
-      // Use imageUrl directly (no file upload)
-      const finalImageUrl = imageUrl || undefined;
+  const finalImageUrl = await uploadImage();
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
@@ -200,6 +221,7 @@ const BlogPostForm = () => {
       }
     } finally {
       setLoading(false);
+      setUploading(false);
     }
   };
 
@@ -283,6 +305,7 @@ const BlogPostForm = () => {
                       src={imagePreview}
                       alt="Preview"
                       className="w-full max-h-64 object-cover rounded-lg border"
+                      onError={(event) => handleImageError(event, PLACEHOLDER_IMAGE)}
                     />
                     <button
                       type="button"

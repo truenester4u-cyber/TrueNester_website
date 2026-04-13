@@ -12,6 +12,18 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const navigate = useNavigate();
   const { user, isLoading, isAuthenticated } = useAuth();
 
+  // Lock body scroll and apply 90% zoom while admin layout is mounted
+  useEffect(() => {
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.zoom = '0.9';
+    return () => {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+      document.documentElement.style.zoom = '';
+    };
+  }, []);
+
   // Redirect to login if not authenticated (after loading completes)
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -41,17 +53,15 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     <SidebarProvider>
       <div className="h-screen flex w-full overflow-hidden">
         <AdminSidebar />
-        <div className="flex-1 flex flex-col h-screen overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0">
           <header className="h-14 flex items-center border-b bg-background px-4 flex-shrink-0">
             <SidebarTrigger />
             <div className="ml-4">
               <h1 className="text-xl font-bold text-gradient-primary">TRUE NESTER Admin</h1>
             </div>
           </header>
-          <main className="flex-1 overflow-y-auto bg-muted/20">
-            <div className="h-full">
-              {children}
-            </div>
+          <main className="flex-1 overflow-y-auto admin-scrollbar bg-muted/20">
+            {children}
           </main>
         </div>
       </div>

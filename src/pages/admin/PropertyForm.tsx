@@ -99,8 +99,14 @@ const PropertyForm = () => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [images, setImages] = useState<string[]>([]);
+  const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const [draggedImageIndex, setDraggedImageIndex] = useState<number | null>(null);
   const draggedImageIndexRef = useRef<number | null>(null);
+  // Maps blob display-URL → storage filename (for DB save)
+  const blobToFilename = useRef<Map<string, string>>(new Map());
+  // Single-image blob → filename for floor plan and QR
+  const floorPlanBlobFilename = useRef<{ blob: string; filename: string } | null>(null);
+  const qrBlobFilename = useRef<{ blob: string; filename: string } | null>(null);
   const [featuredImage, setFeaturedImage] = useState<string>("");
   const [newFeature, setNewFeature] = useState("");
   const [newAmenity, setNewAmenity] = useState("");
@@ -250,8 +256,16 @@ const PropertyForm = () => {
           trakheesi_qr_link: propertyData.trakheesi_qr_link || "",
         });
         console.log('📝 ADMIN: Set floor_plans to form:', Array.isArray(propertyData.floor_plans) ? propertyData.floor_plans : []);
-        setImages((propertyData.images as string[]) || []);
-        setFeaturedImage(propertyData.featured_image || "");
+        // Convert any plain filenames (legacy) to public URLs before setting state
+        const toPublicIfNeeded = (url: string): string => {
+          if (!url || url.startsWith('http') || url.startsWith('blob:')) return url;
+          const { data } = supabase.storage.from('property-images').getPublicUrl(url);
+          return data?.publicUrl || url;
+        };
+        const rawImages = (propertyData.images as string[]) || [];
+        const rawFeatured = propertyData.featured_image || "";
+        setImages(rawImages.map(toPublicIfNeeded));
+        setFeaturedImage(toPublicIfNeeded(rawFeatured));
         const parsedTypes = parsePropertyTypes(propertyData.property_type).map((type) => type.toLowerCase());
         setSelectedPropertyTypes(parsedTypes.length > 0
           ? Array.from(new Set(parsedTypes))
@@ -328,24 +342,25 @@ const PropertyForm = () => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    const fileArray = Array.from(files);
+
+    // Show blob URLs immediately — they display the actual image from browser memory
+    // and stay in state permanently (never swapped for public URL)
+    const blobUrls = fileArray.map((f) => URL.createObjectURL(f));
+    setImages((prev) => [...prev, ...blobUrls]);
+    setFeaturedImage((prev) => (prev ? prev : blobUrls[0] ?? ""));
+
     setUploading(true);
     try {
-      const uploadedPaths: string[] = [];
-
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      for (let i = 0; i < fileArray.length; i++) {
+        const file = fileArray[i];
         const fileExt = file.name.split(".").pop();
-        const fileName = `${Math.random()}.${fileExt}`;
-        const filePath = `${fileName}`;
+        const fileName = `${crypto.randomUUID()}.${fileExt}`;
 
-        // Convert to ArrayBuffer to ensure binary upload and prevent corruption
-        const arrayBuffer = await file.arrayBuffer();
-        const fileBuffer = new Uint8Array(arrayBuffer);
-
-        const { error: uploadError, data } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from("property-images")
-          .upload(filePath, fileBuffer, {
-            contentType: file.type,
+          .upload(fileName, file, {
+            contentType: file.type || 'image/jpeg',
             upsert: false
           });
 
@@ -354,12 +369,28 @@ const PropertyForm = () => {
           throw uploadError;
         }
 
-        uploadedPaths.push(filePath);
-      }
+        // Get permanent public URL — bucket must be public (never expires)
+        const { data: publicData } = supabase.storage
+          .from('property-images')
+          .getPublicUrl(fileName);
+        const publicUrl = publicData?.publicUrl || fileName;
 
-      setImages((prev) => [...prev, ...uploadedPaths]);
-      if (!featuredImage && uploadedPaths.length > 0) {
-        setFeaturedImage(uploadedPaths[0]);
+        // Validate the uploaded file is actually an image (not a corrupted multipart body)
+        try {
+          const check = await fetch(publicUrl, { method: 'HEAD' });
+          const ct = check.headers.get('content-type') || '';
+          if (!ct.startsWith('image/')) {
+            // File is corrupted — delete it and skip
+            await supabase.storage.from('property-images').remove([fileName]);
+            throw new Error(`Upload failed: file ${file.name} was not stored correctly. Please try again.`);
+          }
+        } catch (validationError: any) {
+          if (validationError.message.includes('not stored correctly')) throw validationError;
+          // Network check failed — proceed optimistically
+        }
+
+        // Store public URL (or filename as fallback) for DB save; blob stays as in-session preview
+        blobToFilename.current.set(blobUrls[i], publicUrl);
       }
 
       toast({
@@ -367,6 +398,13 @@ const PropertyForm = () => {
         description: "Images uploaded successfully",
       });
     } catch (error: any) {
+      // Remove blobs that failed to upload
+      setImages((prev) => prev.filter((img) => !blobUrls.includes(img)));
+      setFeaturedImage((prev) => (blobUrls.includes(prev) ? "" : prev));
+      blobUrls.forEach((url) => {
+        blobToFilename.current.delete(url);
+        try { URL.revokeObjectURL(url); } catch {}
+      });
       toast({
         title: "Error",
         description: error.message,
@@ -378,9 +416,11 @@ const PropertyForm = () => {
   };
 
   const removeImage = (index: number) => {
+    const removed = images[index];
     const newImages = images.filter((_, i) => i !== index);
     setImages(newImages);
-    if (featuredImage === images[index] && newImages.length > 0) {
+    setBrokenImages((prev) => { const s = new Set(prev); s.delete(removed); return s; });
+    if (featuredImage === removed && newImages.length > 0) {
       setFeaturedImage(newImages[0]);
     }
   };
@@ -528,35 +568,43 @@ const PropertyForm = () => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    const file = files[0];
+    const blobUrl = URL.createObjectURL(file);
+    // Clean up previous blob if any
+    if (floorPlanBlobFilename.current) {
+      try { URL.revokeObjectURL(floorPlanBlobFilename.current.blob); } catch {}
+    }
+    floorPlanBlobFilename.current = null;
+    setNewFloorPlan((prev) => ({ ...prev, image: blobUrl }));
+
     setUploadingFloorPlan(true);
     try {
-      const file = files[0];
       const fileExt = file.name.split(".").pop();
-      const fileName = `floorplan_${Math.random()}.${fileExt}`;
-      const filePath = `${fileName}`;
-
-      // Convert to ArrayBuffer to ensure binary upload
-      const arrayBuffer = await file.arrayBuffer();
-      const fileBuffer = new Uint8Array(arrayBuffer);
+      const fileName = `floorplan_${crypto.randomUUID()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from("property-images")
-        .upload(filePath, fileBuffer, {
-          contentType: file.type,
+        .upload(fileName, file, {
+          contentType: file.type || 'image/jpeg',
           upsert: false
         });
 
       if (uploadError) throw uploadError;
 
-      // Store only the file path, not the full URL
-      // The getSafeImageUrl utility will convert it to a public URL when needed
-      setNewFloorPlan({ ...newFloorPlan, image: filePath });
+      // Get permanent public URL — bucket must be public (never expires)
+      const { data: publicData } = supabase.storage
+        .from('property-images')
+        .getPublicUrl(fileName);
+      floorPlanBlobFilename.current = { blob: blobUrl, filename: publicData?.publicUrl || fileName };
 
       toast({
         title: "Success",
         description: "Floor plan image uploaded successfully",
+
       });
     } catch (error: any) {
+      try { URL.revokeObjectURL(blobUrl); } catch {}
+      setNewFloorPlan((prev) => ({ ...prev, image: "" }));
       toast({
         title: "Error",
         description: error.message,
@@ -571,32 +619,43 @@ const PropertyForm = () => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    const file = files[0];
+    const blobUrl = URL.createObjectURL(file);
+    // Clean up previous blob if any
+    if (qrBlobFilename.current) {
+      try { URL.revokeObjectURL(qrBlobFilename.current.blob); } catch {}
+    }
+    qrBlobFilename.current = null;
+    handleInputChange("trakheesi_qr_image", blobUrl);
+
     setUploadingTrakheesi(true);
     try {
-      const file = files[0];
       const fileExt = file.name.split(".").pop();
-      const fileName = `trakheesi_${Math.random()}.${fileExt}`;
-      const filePath = `${fileName}`;
-
-      const arrayBuffer = await file.arrayBuffer();
-      const fileBuffer = new Uint8Array(arrayBuffer);
+      const fileName = `trakheesi_${crypto.randomUUID()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from("property-images")
-        .upload(filePath, fileBuffer, {
-          contentType: file.type,
+        .upload(fileName, file, {
+          contentType: file.type || 'image/jpeg',
           upsert: false
         });
 
       if (uploadError) throw uploadError;
 
-      handleInputChange("trakheesi_qr_image", filePath);
+      // Get permanent public URL — bucket must be public (never expires)
+      const { data: publicData } = supabase.storage
+        .from('property-images')
+        .getPublicUrl(fileName);
+      qrBlobFilename.current = { blob: blobUrl, filename: publicData?.publicUrl || fileName };
 
       toast({
         title: "Success",
         description: "Trakheesi QR code uploaded successfully",
+
       });
     } catch (error: any) {
+      try { URL.revokeObjectURL(blobUrl); } catch {}
+      handleInputChange("trakheesi_qr_image", "");
       toast({
         title: "Error",
         description: error.message,
@@ -648,15 +707,68 @@ const PropertyForm = () => {
         return text || null;
       };
 
-      // Convert any signed/public URLs back to filenames for storage
-      const cleanedImages = images.map(extractFilenameFromUrl);
-      const cleanedFeaturedImage = featuredImage ? extractFilenameFromUrl(featuredImage) : null;
+      // Resolve any URL/blob/filename to a storable public URL:
+      // - blob: URL        → stored public URL from blobToFilename map (set at upload time)
+      // - signed URL       → extract filename and return permanent public URL
+      // - public URL       → return as-is (already permanent)
+      // - external URL     → return as-is (Unsplash etc.)
+      // - plain filename   → get permanent public URL
+      const resolveUrl = async (url: string): Promise<string | null> => {
+        if (!url?.trim()) return null;
+        if (url.startsWith('blob:')) {
+          return blobToFilename.current.get(url) ?? null;
+        }
+        // Convert any lingering signed URLs to permanent public URLs
+        if (url.includes('supabase.co/storage/v1/object/sign/') && url.includes('?token=')) {
+          const match = url.match(/property-images\/([^?]+)/);
+          if (match && match[1]) {
+            const { data } = supabase.storage.from('property-images').getPublicUrl(match[1]);
+            return data?.publicUrl || url;
+          }
+          return url;
+        }
+        if (url.startsWith('http://') || url.startsWith('https://')) return url;
+        // Plain filename (old DB record) — get permanent public URL
+        try {
+          const { data } = supabase.storage
+            .from('property-images')
+            .getPublicUrl(url);
+          return data?.publicUrl || null;
+        } catch {
+          return null;
+        }
+      };
+      // Only exclude blob URLs whose upload failed (no mapping); keep all others
+      const cleanedImages = (await Promise.all(
+        images
+          .filter((img) => !img.startsWith('blob:') || blobToFilename.current.has(img))
+          .map(resolveUrl)
+      )).filter((f): f is string => !!f);
+      const cleanedFeaturedImage = featuredImage ? await resolveUrl(featuredImage) : null;
       
-      // Clean floor plan images too
-      const cleanedFloorPlans = formData.floor_plans.map(fp => ({
-        ...fp,
-        image: fp.image ? extractFilenameFromUrl(fp.image) : fp.image
+      // Clean floor plan images
+      const cleanedFloorPlans = await Promise.all(formData.floor_plans.map(async fp => {
+        const img = fp.image;
+        if (!img) return fp;
+        let resolvedImage: string | null;
+        if (img.startsWith('blob:') && floorPlanBlobFilename.current?.blob === img) {
+          resolvedImage = floorPlanBlobFilename.current.filename || null;
+        } else {
+          resolvedImage = await resolveUrl(img);
+        }
+        return { ...fp, image: resolvedImage || img };
       }));
+
+      // Pre-compute QR image resolution (async, so must be outside the object literal)
+      let resolvedQrImage: string | null = null;
+      const qrVal = formData.trakheesi_qr_image;
+      if (qrVal) {
+        if (qrVal.startsWith('blob:') && qrBlobFilename.current?.blob === qrVal) {
+          resolvedQrImage = qrBlobFilename.current.filename || null;
+        } else if (!qrVal.startsWith('blob:')) {
+          resolvedQrImage = await resolveUrl(qrVal);
+        }
+      }
 
       const propertyData: Record<string, any> = {
         title: formData.title,
@@ -704,7 +816,7 @@ const PropertyForm = () => {
         payment_plan_table: formData.payment_plan_table,
         total_units: normalizeText(formData.total_units),
         trakheesi_permit_number: formData.trakheesi_permit_number || null,
-        trakheesi_qr_image: formData.trakheesi_qr_image ? extractFilenameFromUrl(formData.trakheesi_qr_image) : null,
+        trakheesi_qr_image: resolvedQrImage,
         trakheesi_qr_link: formData.trakheesi_qr_link || null,
       };
 
@@ -1338,12 +1450,17 @@ const PropertyForm = () => {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {images.map((image, index) => {
                     const imageUrl = getSafeImageUrl(image, PLACEHOLDER_IMAGE);
+                    const isBroken = brokenImages.has(image);
                     return (
                       <div
                         key={`${image}-${index}`}
-                        className={`relative group cursor-grab ${draggedImageIndex === index ? "ring-2 ring-primary ring-offset-2" : ""}`}
-                        draggable
-                        onDragStart={() => handleImageDragStart(index)}
+                        className={`relative group cursor-grab ${
+                          draggedImageIndex === index ? "ring-2 ring-primary ring-offset-2" : ""
+                        } ${
+                          isBroken ? "ring-2 ring-red-500 ring-offset-1 rounded-lg" : ""
+                        }`}
+                        draggable={!isBroken}
+                        onDragStart={() => !isBroken && handleImageDragStart(index)}
                         onDragOver={handleImageDragOver}
                         onDrop={() => handleImageDrop(index)}
                         onDragEnd={handleImageDragEnd}
@@ -1351,37 +1468,52 @@ const PropertyForm = () => {
                         <img
                           src={imageUrl}
                           alt={`Property ${index + 1}`}
-                          className="w-full h-32 object-cover rounded-lg"
-                          onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
+                          className={`w-full h-32 object-cover rounded-lg ${
+                            isBroken ? "opacity-40" : ""
+                          }`}
+                          onError={() => {
+                            setBrokenImages((prev) => new Set(prev).add(image));
+                          }}
                           loading="lazy"
                         />
-                      <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 bg-white/90 text-xs font-medium text-gray-700 rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                        <GripVertical className="w-3 h-3" />
-                        Drag
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                      {image === featuredImage && (
-                        <span className="absolute bottom-2 left-2 px-2 py-1 bg-blue-500 text-white text-xs rounded">
-                          Featured
-                        </span>
-                      )}
-                      {image !== featuredImage && (
+                        {isBroken && (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-50/80 rounded-lg pointer-events-none">
+                            <X className="w-6 h-6 text-red-500 mb-1" />
+                            <span className="text-red-600 text-xs font-semibold">Missing file</span>
+                            <span className="text-red-500 text-[10px]">Click ✕ to remove</span>
+                          </div>
+                        )}
+                        {!isBroken && (
+                          <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 bg-white/90 text-xs font-medium text-gray-700 rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                            <GripVertical className="w-3 h-3" />
+                            Drag
+                          </div>
+                        )}
                         <button
                           type="button"
-                          onClick={() => setFeaturedImage(image)}
-                          className="absolute bottom-2 left-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => removeImage(index)}
+                          className={`absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full transition-opacity ${
+                            isBroken ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                          }`}
                         >
-                          Set as Featured
+                          <X className="w-4 h-4" />
                         </button>
-                      )}
-                    </div>
-                  );
+                        {!isBroken && image === featuredImage && (
+                          <span className="absolute bottom-2 left-2 px-2 py-1 bg-blue-500 text-white text-xs rounded">
+                            Featured
+                          </span>
+                        )}
+                        {!isBroken && image !== featuredImage && (
+                          <button
+                            type="button"
+                            onClick={() => setFeaturedImage(image)}
+                            className="absolute bottom-2 left-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            Set as Featured
+                          </button>
+                        )}
+                      </div>
+                    );
                   })}
                 </div>
               )}

@@ -21,8 +21,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { parsePropertyTypes } from "@/lib/utils";
 import { Property } from "@/types/property";
 import { fetchRentalProperties } from "@/lib/supabase-queries";
-import { getSafeImageUrl, PLACEHOLDER_IMAGE } from "@/lib/imageUtils";
-import { useShowRentals } from "@/hooks/useShowRentals";
+import { getSafeImageUrl, handleImageError, PLACEHOLDER_IMAGE } from "@/lib/imageUtils";
+import { useShowProjects } from "@/hooks/useShowProjects";
 
 const usePublishedRentals = (search: string) => {
   return useQuery<Property[], Error>({
@@ -91,7 +91,7 @@ const HeartButton = ({ propertyId, propertyTitle, propertyImage, propertyPrice }
 };
 
 const Rent = () => {
-  const { data: showRentals = true } = useShowRentals();
+  const { data: showProjects = true } = useShowProjects();
   const [searchParams, setSearchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [search, setSearch] = useState("");
@@ -436,7 +436,7 @@ const Rent = () => {
 
   return (
     <Layout>
-      {!showRentals ? (
+      {!showProjects ? (
         <div className="pt-20 min-h-[60vh] flex items-center justify-center">
           <div className="text-center space-y-4 p-8">
             <MapPin className="h-16 w-16 mx-auto text-muted-foreground/50" />
@@ -811,6 +811,7 @@ const Rent = () => {
                                     src={mainImage}
                                     alt={property.title}
                                     className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                                    onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                                   />
                                   
                                   {property.featured && (
@@ -828,6 +829,7 @@ const Rent = () => {
                                         src={img}
                                         alt={`${property.title} - ${idx + 2}`}
                                         className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                                        onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                                       />
                                       {/* Show +N overlay on last thumbnail if more images exist */}
                                       {idx === thumbnails.length - 1 && totalPhotos > 3 && (

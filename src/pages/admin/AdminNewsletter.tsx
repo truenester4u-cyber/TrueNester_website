@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { NewsletterSubscriber } from '@/types/newsletter';
+import { API_BASE_URL } from '@/lib/api-config';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -26,7 +27,43 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-const API_BASE_URL = import.meta.env.VITE_ADMIN_API_URL || 'http://localhost:4001/api';
+const getNewsletterApiCandidates = (): string[] => {
+  const candidates = [API_BASE_URL];
+
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    candidates.push('http://localhost:4000/api');
+    candidates.push('http://localhost:4001/api');
+  }
+
+  return [...new Set(candidates.map((url) => url.replace(/\/$/, '')))];
+};
+
+const requestNewsletterApi = async (path: string, options?: RequestInit) => {
+  const candidates = getNewsletterApiCandidates();
+  let lastError: Error | null = null;
+
+  for (const baseUrl of candidates) {
+    try {
+      const response = await fetch(`${baseUrl}${path}`, options);
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Request failed');
+      }
+
+      return result;
+    } catch (error: any) {
+      const isNetworkError = error instanceof TypeError;
+      if (!isNetworkError) {
+        throw (error instanceof Error ? error : new Error('Request failed'));
+      }
+
+      lastError = error instanceof Error ? error : new Error('Failed to fetch');
+    }
+  }
+
+  throw lastError || new Error('Failed to fetch');
+};
 
 const AdminNewsletter = () => {
   const [subscribers, setSubscribers] = useState<NewsletterSubscriber[]>([]);
@@ -54,19 +91,14 @@ const AdminNewsletter = () => {
   const fetchSubscribers = async () => {
     try {
       console.log('📧 Fetching newsletter subscribers...');
-      
+
       // Try backend API first (uses service role key, bypasses RLS)
       try {
-        const response = await fetch(`${API_BASE_URL}/newsletter/subscribers`);
-        const result = await response.json();
-        
-        if (response.ok && result.success) {
-          console.log(`✅ Loaded ${result.data.length} subscribers via backend API`);
-          setSubscribers(result.data || []);
-          setFilteredSubscribers(result.data || []);
-          return;
-        }
-        console.warn('⚠️ Backend API failed, trying Supabase direct...');
+        const result = await requestNewsletterApi('/newsletter/subscribers');
+        console.log(`✅ Loaded ${result.data.length} subscribers via backend API`);
+        setSubscribers(result.data || []);
+        setFilteredSubscribers(result.data || []);
+        return;
       } catch (apiError) {
         console.warn('⚠️ Backend API unavailable, using Supabase fallback...');
       }
@@ -96,24 +128,20 @@ const AdminNewsletter = () => {
   const handleDelete = async (id: string) => {
     try {
       console.log(`🗑️ Deleting subscriber: ${id}`);
-      
+
       // Try backend API first
       try {
-        const response = await fetch(`${API_BASE_URL}/newsletter/subscribers/${id}`, {
+        await requestNewsletterApi(`/newsletter/subscribers/${id}`, {
           method: 'DELETE',
         });
-        const result = await response.json();
-        
-        if (response.ok && result.success) {
-          console.log('✅ Subscriber deleted via backend API');
-          toast({
-            title: 'Success',
-            description: 'Subscriber deleted successfully.',
-          });
-          fetchSubscribers();
-          return;
-        }
-        console.warn('⚠️ Backend API delete failed, trying Supabase...');
+
+        console.log('✅ Subscriber deleted via backend API');
+        toast({
+          title: 'Success',
+          description: 'Subscriber deleted successfully.',
+        });
+        fetchSubscribers();
+        return;
       } catch (apiError) {
         console.warn('⚠️ Backend API unavailable, using Supabase fallback...');
       }

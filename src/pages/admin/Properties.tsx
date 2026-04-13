@@ -313,7 +313,7 @@ const Properties = () => {
             </div>
           ) : (
             <>
-            <div className="overflow-auto">
+            <div className="overflow-x-auto admin-scrollbar-x">
             <Table>
               <TableHeader>
                 <TableRow>

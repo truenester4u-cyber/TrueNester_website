@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Upload, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { getSafeImageUrl } from "@/lib/imageUtils";
 import {
   Select,
   SelectContent,
@@ -35,6 +36,7 @@ const LocationForm = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(!!id);
   const [formData, setFormData] = useState<LocationFormData>({
     name: "",
@@ -89,6 +91,44 @@ const LocationForm = () => {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `location_${crypto.randomUUID()}.${fileExt}`;
+      
+      const arrayBuffer = await file.arrayBuffer();
+
+      const { error: uploadError } = await supabase.storage
+        .from("property-images")
+        .upload(fileName, arrayBuffer, {
+          contentType: file.type || 'image/jpeg',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      const publicUrl = getSafeImageUrl(fileName);
+      setFormData(prev => ({ ...prev, image: publicUrl }));
+      
+      toast({
+        title: "Success",
+        description: "Image uploaded successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleInputChange = (
@@ -306,29 +346,64 @@ const LocationForm = () => {
                 />
               </div>
 
-              {/* Image URL */}
-              <div className="space-y-2">
-                <Label htmlFor="image">Image URL</Label>
-                <Input
-                  id="image"
-                  name="image"
-                  value={formData.image}
-                  onChange={handleInputChange}
-                  placeholder="https://example.com/image.jpg"
-                />
-                {formData.image && (
-                  <div className="mt-2">
-                    <img
-                      src={formData.image}
-                      alt="Preview"
-                      className="w-full max-w-md h-48 object-cover rounded-lg"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "";
-                        (e.target as HTMLImageElement).alt = "Invalid image URL";
-                      }}
+              {/* Image */}
+              <div className="space-y-4">
+                <Label>Location Image</Label>
+                <div className="space-y-4">
+                  {formData.image ? (
+                    <div className="relative group max-w-md">
+                      <img
+                        src={getSafeImageUrl(formData.image)}
+                        alt="Preview"
+                        className="w-full h-48 object-cover rounded-lg border shadow-sm"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "/placeholder.svg";
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, image: "" }))}
+                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer bg-gray-50/50">
+                      <input
+                        id="image-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                        disabled={uploading}
+                      />
+                      <label htmlFor="image-upload" className="cursor-pointer flex flex-col items-center gap-3">
+                        {uploading ? (
+                          <Loader2 className="h-10 w-10 text-primary animate-spin" />
+                        ) : (
+                          <Upload className="h-10 w-10 text-gray-400" />
+                        )}
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium">Click to upload location image</p>
+                          <p className="text-xs text-muted-foreground">PNG, JPG or WebP up to 5MB</p>
+                        </div>
+                      </label>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="image" className="text-xs text-muted-foreground">Or paste direct image URL</Label>
+                    <Input
+                      id="image"
+                      name="image"
+                      value={formData.image}
+                      onChange={handleInputChange}
+                      placeholder="https://example.com/image.jpg"
+                      className="text-sm"
                     />
                   </div>
-                )}
+                </div>
               </div>
 
               {/* Properties Count */}
@@ -361,8 +436,8 @@ const LocationForm = () => {
 
               {/* Submit Buttons */}
               <div className="flex gap-4 pt-4">
-                <Button type="submit" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button type="submit" disabled={loading || uploading}>
+                  {(loading || uploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {id ? "Update Location" : "Create Location"}
                 </Button>
                 <Button
