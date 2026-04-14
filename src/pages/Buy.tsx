@@ -1007,7 +1007,7 @@ const Buy = () => {
                               
                               {/* Price badge - Responsive sizing */}
                               <div className="absolute bottom-3 left-3 md:bottom-4 md:left-4 bg-white rounded-lg md:rounded-xl px-3 py-2 md:px-5 md:py-3 z-10 shadow-xl">
-                                <div className="text-sm md:text-lg font-bold text-gray-900">
+                                <div className="text-lg md:text-2xl font-extrabold text-gray-900">
                                   {getDisplayPrice(property)}
                                 </div>
                               </div>

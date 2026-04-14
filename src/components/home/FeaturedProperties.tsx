@@ -272,7 +272,7 @@ const FeaturedProperties = () => {
             )}
 
             <div className="absolute bottom-3 left-3 md:bottom-4 md:left-4 bg-white rounded-lg md:rounded-xl px-3 py-1.5 md:px-4 md:py-2 z-10 shadow-xl">
-              <div className="text-xs md:text-sm font-bold text-gray-900">{getDisplayPrice(property)}</div>
+              <div className="text-sm md:text-lg font-extrabold text-gray-900">{getDisplayPrice(property)}</div>
             </div>
             
             {/* Photo count badge - Mobile only */}

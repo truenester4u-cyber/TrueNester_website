@@ -436,18 +436,6 @@ const Rent = () => {
 
   return (
     <Layout>
-      {!showProjects ? (
-        <div className="pt-20 min-h-[60vh] flex items-center justify-center">
-          <div className="text-center space-y-4 p-8">
-            <MapPin className="h-16 w-16 mx-auto text-muted-foreground/50" />
-            <h2 className="text-2xl font-bold text-muted-foreground">Rentals Coming Soon</h2>
-            <p className="text-muted-foreground max-w-md mx-auto">Our rental listings are currently being updated. Please check back soon for the latest available properties.</p>
-            <Button asChild variant="outline">
-              <Link to="/">Back to Home</Link>
-            </Button>
-          </div>
-        </div>
-      ) : (
       <div className="pt-20">
         {/* Quick Search */}
         <section className="bg-background border-b py-2.5 sm:py-3 gap-4">
@@ -857,7 +845,7 @@ const Rent = () => {
                               
                               {/* Price badge - Responsive sizing */}
                               <div className="absolute bottom-3 left-3 md:bottom-4 md:left-4 bg-white rounded-lg md:rounded-xl px-3 py-2 md:px-5 md:py-3 z-10 shadow-xl">
-                                <div className="text-sm md:text-lg font-bold text-gray-900 flex items-center gap-1">
+                                <div className="text-lg md:text-2xl font-extrabold text-gray-900 flex items-center gap-1">
                                   <span>{priceLabel}</span>
                                   {showMonthlySuffix && (
                                     <span className="text-xs md:text-sm font-normal text-gray-600">/mo</span>
@@ -921,7 +909,6 @@ const Rent = () => {
           </div>
         </section>
       </div>
-      )}
     </Layout>
   );
 };

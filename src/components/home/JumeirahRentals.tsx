@@ -124,13 +124,10 @@ const JumeirahRentals = () => {
             <CardContent className="p-4 space-y-2">
               <div className="mb-2">
                 <h3 className="text-lg font-bold mb-1 group-hover:text-primary transition-colors line-clamp-2">{property.title}</h3>
-                <p className="text-primary font-semibold text-base">{formatPrice(property.price as number)}</p>
+                <p className="text-primary font-extrabold text-xl">
+                  {property.price_display?.trim() || formatPrice(property.price as number) || "Price on Request"}
+                </p>
               </div>
-              <p className="text-muted-foreground text-xs line-clamp-2">
-                {typeof property.description === 'string'
-                  ? property.description.replace(/<[^>]*>/g, '').substring(0, 100)
-                  : ''}
-              </p>
               <div className="flex items-center gap-4 text-xs font-semibold text-gray-700 pt-2">
                 {property.bedrooms && (
                   <span className="flex items-center gap-1">
