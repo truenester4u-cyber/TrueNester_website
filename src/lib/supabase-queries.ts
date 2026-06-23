@@ -79,8 +79,7 @@ export const fetchRentalProperties = async (): Promise<any[]> => {
     .select("*")
     .eq("published", true)
     .eq("purpose", "rent")
-    .order("created_at", { ascending: false })
-    .limit(50);
+    .order("created_at", { ascending: false });
 
   if (error) {
     console.error("❌ fetchRentalProperties error:", error);
@@ -106,8 +105,7 @@ export const fetchBuyProperties = async (search: string = ""): Promise<any[]> =>
     .select("*")
     .eq("published", true)
     .in("purpose", ["buy", "sale"])
-    .order("created_at", { ascending: false })
-    .limit(48);
+    .order("created_at", { ascending: false });
 
   if (error) {
     console.error("❌ fetchBuyProperties error:", error);
