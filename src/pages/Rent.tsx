@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Bed, Bath, Square, MapPin, Heart, Grid3x3, List, ChevronDown } from "lucide-react";
+import { Bed, Bath, Square, MapPin, Heart, Grid3x3, List, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useIsPropertySaved, useToggleSaveProperty } from "@/hooks/useSavedProperties";
 import { useAuth } from "@/contexts/AuthContext.v2";
 import { useToast } from "@/hooks/use-toast";
@@ -109,6 +109,8 @@ const Rent = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState<string>("relevance");
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
   const { data: allProperties = [], isLoading } = usePublishedRentals(search);
 
   // Min Rent options for dropdown (yearly rent in AED)
@@ -377,6 +379,22 @@ const Rent = () => {
         return sorted;
     }
   }, [properties, sortBy]);
+
+  // Reset to page 1 whenever filters/sort change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sortedProperties.length, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedProperties.length / PAGE_SIZE));
+  const paginatedProperties = sortedProperties.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   // Removed duplicate parseSqftValue (moved above)
 
@@ -770,8 +788,9 @@ const Rent = () => {
                     <p className="text-xs sm:text-sm md:text-base text-muted-foreground px-2">No properties found. Try adjusting your search or filters.</p>
                   </div>
                 ) : (
+                  <>
                   <div className={`grid ${viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-2" : "grid-cols-1"} gap-6 md:gap-4`}>
-                    {sortedProperties.map((property) => {
+                    {paginatedProperties.map((property) => {
                       const images = (property.images as string[]) || [];
                       const allImages = property.featured_image ? [property.featured_image, ...images.filter((img: string) => img !== property.featured_image)] : images;
                       // Convert storage paths to public URLs
@@ -903,6 +922,62 @@ const Rent = () => {
                       );
                     })}
                   </div>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-8 pt-6 border-t">
+                      <p className="text-sm text-muted-foreground">
+                        Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, sortedProperties.length)} of {sortedProperties.length} properties
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => goToPage(currentPage - 1)}
+                          disabled={currentPage === 1}
+                          className="flex items-center gap-1"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                          Previous
+                        </Button>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                            .reduce<(number | string)[]>((acc, p, idx, arr) => {
+                              if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push("…");
+                              acc.push(p);
+                              return acc;
+                            }, [])
+                            .map((p, idx) =>
+                              p === "…" ? (
+                                <span key={`ellipsis-${idx}`} className="px-1 text-muted-foreground text-sm">…</span>
+                              ) : (
+                                <Button
+                                  key={p}
+                                  variant={p === currentPage ? "default" : "outline"}
+                                  size="sm"
+                                  className="w-9 h-9"
+                                  onClick={() => goToPage(p as number)}
+                                >
+                                  {p}
+                                </Button>
+                              )
+                            )}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => goToPage(currentPage + 1)}
+                          disabled={currentPage === totalPages}
+                          className="flex items-center gap-1"
+                        >
+                          Next
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  </>
                 )}
               </div>
             </div>
