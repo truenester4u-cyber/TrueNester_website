@@ -494,7 +494,7 @@ const PropertyDetail = () => {
                               <img 
                                 src={img || PLACEHOLDER_IMAGE} 
                                 alt={`${property.title} - ${idx + 1}`}
-                                className="max-w-full max-h-full object-contain"
+                                className={`max-w-full max-h-full object-contain${property.is_rented ? ' blur-[3px]' : ''}`}
                                 onClick={() => openLightbox(idx)}
                                 onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                               />
@@ -525,6 +525,11 @@ const PropertyDetail = () => {
                         {property.featured && (
                           <div className="absolute top-3 left-3 z-10">
                             <span className="badge-featured text-xs px-2 py-1">Featured</span>
+                          </div>
+                        )}
+                        {property.is_rented && (
+                          <div className="absolute top-3 right-3 z-10">
+                            <span className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">Rented</span>
                           </div>
                         )}
                         
@@ -657,7 +662,7 @@ const PropertyDetail = () => {
                           <img 
                             src={images[0] || PLACEHOLDER_IMAGE} 
                             alt={property.title} 
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                            className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500${property.is_rented ? ' blur-[3px]' : ''}`}
                             onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                           />
                           <img
@@ -669,6 +674,11 @@ const PropertyDetail = () => {
                           {property.featured && (
                             <div className="absolute top-4 left-4 z-10">
                               <span className="badge-featured">Featured</span>
+                            </div>
+                          )}
+                          {property.is_rented && (
+                            <div className="absolute top-4 right-4 z-10">
+                              <span className="bg-red-600 text-white font-bold px-3 py-1 rounded text-sm">Rented</span>
                             </div>
                           )}
                           

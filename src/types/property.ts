@@ -43,4 +43,5 @@ export interface Property {
   meta_description: string | null;
   youtube_url: string | null;
   starting_price: number | null;
+  is_rented: boolean;
 }

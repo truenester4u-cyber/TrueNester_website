@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Plus, Search, Eye } from "lucide-react";
+import { Pencil, Trash2, Plus, Search, Eye, KeyRound } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { parsePropertyTypes } from "@/lib/utils";
 import { getSafeImageUrl, PLACEHOLDER_IMAGE, getPropertyStorageFiles, deletePropertyStorageFiles } from "@/lib/imageUtils";
@@ -45,6 +45,7 @@ interface Property {
   featured_abu_dhabi: boolean;
   featured_ras_al_khaimah: boolean;
   published: boolean;
+  is_rented: boolean;
   views: number;
   created_at: string;
   featured_image: string | null;
@@ -114,6 +115,24 @@ const Properties = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleRented = async (property: Property) => {
+    const newValue = !property.is_rented;
+    try {
+      const { error } = await supabase
+        .from("properties")
+        .update({ is_rented: newValue })
+        .eq("id", property.id);
+      if (error) throw error;
+      toast({
+        title: newValue ? "Marked as Rented" : "Rented status removed",
+        description: `"${property.title}" has been updated.`,
+      });
+      fetchProperties();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     }
   };
 
@@ -432,6 +451,11 @@ const Properties = () => {
                             Wynn Casino Spotlight
                           </Badge>
                         )}
+                        {property.is_rented && (
+                          <Badge variant="default" className="w-fit bg-red-600">
+                            Rented
+                          </Badge>
+                        )}
                         {property.published ? (
                           <Badge variant="default" className="w-fit bg-green-500">
                             Published
@@ -451,6 +475,15 @@ const Properties = () => {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant={property.is_rented ? "default" : "outline"}
+                          onClick={() => handleToggleRented(property)}
+                          className={property.is_rented ? "bg-red-600 hover:bg-red-700 text-white" : "text-red-600 hover:text-red-700"}
+                          title={property.is_rented ? "Mark as Available" : "Mark as Rented"}
+                        >
+                          <KeyRound className="w-4 h-4" />
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"

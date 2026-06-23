@@ -117,9 +117,14 @@ const JumeirahRentals = () => {
               <img
                 src={mainImage}
                 alt={property.title}
-                className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                className={`w-full h-full object-cover group-hover:scale-105 transition-all duration-700${property.is_rented ? ' blur-[3px]' : ''}`}
                 style={{ minWidth: '120%', minHeight: '120%' }}
               />
+              {property.is_rented && (
+                <div className="absolute top-3 right-3 z-10">
+                  <span className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">Rented</span>
+                </div>
+              )}
             </div>
             <CardContent className="p-4 space-y-2">
               <div className="mb-2">

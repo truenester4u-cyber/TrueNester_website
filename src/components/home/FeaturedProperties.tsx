@@ -220,13 +220,18 @@ const FeaturedProperties = () => {
                 <img
                   src={mainImage}
                   alt={property.title || 'Property'}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                  className={`w-full h-full object-cover group-hover:scale-105 transition-all duration-700${property.is_rented ? ' blur-[3px]' : ''}`}
                   onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                   loading="lazy"
                 />
                 {property.featured && (
                   <div className="absolute top-3 left-3 md:top-4 md:left-4 z-10">
                     <span className="badge-featured text-xs md:text-sm">Featured</span>
+                  </div>
+                )}
+                {property.is_rented && (
+                  <div className="absolute top-3 right-3 md:top-4 md:right-4 z-10">
+                    <span className="bg-red-600 text-white text-xs md:text-sm font-bold px-2 py-1 rounded">Rented</span>
                   </div>
                 )}
               </div>
@@ -236,13 +241,18 @@ const FeaturedProperties = () => {
                   <img
                     src={mainImage}
                     alt={property.title || 'Property'}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                    className={`w-full h-full object-cover group-hover:scale-105 transition-all duration-700${property.is_rented ? ' blur-[3px]' : ''}`}
                     onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                     loading="lazy"
                   />
                   {property.featured && (
                     <div className="absolute top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-10">
                       <span className="badge-featured text-[10px] sm:text-xs md:text-sm">Featured</span>
+                    </div>
+                  )}
+                  {property.is_rented && (
+                    <div className="absolute top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 z-10">
+                      <span className="bg-red-600 text-white text-[10px] sm:text-xs md:text-sm font-bold px-2 py-1 rounded">Rented</span>
                     </div>
                   )}
                 </div>

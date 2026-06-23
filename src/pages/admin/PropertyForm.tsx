@@ -60,6 +60,7 @@ interface PropertyFormData {
   featured_umm_al_quwain: boolean;
   featured_heart_of_europe: boolean;
   published: boolean;
+  is_rented: boolean;
   payment_plan: string;
   handover_date: string;
   floor_plans: Array<{
@@ -157,6 +158,7 @@ const PropertyForm = () => {
     featured_umm_al_quwain: false,
     featured_heart_of_europe: false,
     published: false,
+    is_rented: false,
     payment_plan: "",
     handover_date: "",
     floor_plans: [],
@@ -246,6 +248,7 @@ const PropertyForm = () => {
           featured_umm_al_quwain: propertyData.featured_umm_al_quwain || false,
           featured_heart_of_europe: propertyData.featured_heart_of_europe || false,
           published: propertyData.published || false,
+          is_rented: propertyData.is_rented || false,
           payment_plan: propertyData.payment_plan || "",
           handover_date: propertyData.handover_date || "",
           floor_plans: Array.isArray(propertyData.floor_plans) ? propertyData.floor_plans : [],
@@ -810,6 +813,7 @@ const PropertyForm = () => {
         featured_umm_al_quwain: formData.featured_umm_al_quwain,
         featured_heart_of_europe: formData.featured_heart_of_europe,
         published: formData.published,
+        is_rented: formData.is_rented,
         payment_plan: formData.payment_plan || null,
         handover_date: formData.handover_date || null,
         floor_plans: cleanedFloorPlans,
@@ -2059,6 +2063,14 @@ const PropertyForm = () => {
                   onCheckedChange={(checked) => handleInputChange("published", checked)}
                 />
               </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="is_rented">Rented</Label>
+                <Switch
+                  id="is_rented"
+                  checked={formData.is_rented}
+                  onCheckedChange={(checked) => handleInputChange("is_rented", checked)}
+                />
+              </div>
               <div className="pt-4 border-t space-y-3">
                 <p className="text-sm font-semibold text-muted-foreground">Homepage featured sections</p>
                 <div className="flex items-center justify-between">
@@ -2132,6 +2144,17 @@ const PropertyForm = () => {
                   onCheckedChange={(checked) => handleInputChange("published", checked)}
                 />
               </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="is_rented">Rented</Label>
+                <Switch
+                  id="is_rented"
+                  checked={formData.is_rented}
+                  onCheckedChange={(checked) => handleInputChange("is_rented", checked)}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Mark this property as currently rented. A "Rented" badge will appear on the public listing.
+              </p>
             </CardContent>
           </Card>
           )}
