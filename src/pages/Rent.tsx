@@ -846,9 +846,16 @@ const Rent = () => {
                                     onError={(e) => handleImageError(e, PLACEHOLDER_IMAGE)}
                                   />
                                   
-                                  {property.featured && (
+                                  {(property.is_rented || property.featured) && (
                                     <div className="absolute top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-10">
-                                      <span className="bg-gradient-to-r from-amber-500 to-amber-600 text-white text-[10px] sm:text-xs font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 md:px-3 md:py-1.5 rounded-md shadow-lg">FEATURED</span>
+                                      <span
+                                        className={property.is_rented
+                                          ? "bg-red-600 text-white text-[10px] sm:text-xs font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 md:px-3 md:py-1.5 rounded-md shadow-lg"
+                                          : "bg-gradient-to-r from-amber-500 to-amber-600 text-white text-[10px] sm:text-xs font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 md:px-3 md:py-1.5 rounded-md shadow-lg"
+                                        }
+                                      >
+                                        {property.is_rented ? "RENTED" : "FEATURED"}
+                                      </span>
                                     </div>
                                   )}
                                 </div>
