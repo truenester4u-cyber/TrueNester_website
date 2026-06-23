@@ -15,7 +15,7 @@ import { useIsPropertySaved, useToggleSaveProperty } from "@/hooks/useSavedPrope
 import { useAuth } from "@/contexts/AuthContext.v2";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useSearchParams } from "react-router-dom";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { parsePropertyTypes } from "@/lib/utils";
@@ -112,6 +112,8 @@ const Rent = () => {
   const PAGE_SIZE = 10;
   // Page is kept in the URL so the browser back button restores the correct page
   const currentPage = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+  // Track first render so the page-reset effect doesn't strip ?page on back navigation
+  const isFirstRender = useRef(true);
   const { data: allProperties = [], isLoading } = usePublishedRentals(search);
 
   // Min Rent options for dropdown (yearly rent in AED)
@@ -382,7 +384,12 @@ const Rent = () => {
   }, [properties, sortBy]);
 
   // Reset to page 1 in the URL whenever filters or sort order change
+  // Skip the first render so back-navigation correctly restores the saved page
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       next.delete("page");
