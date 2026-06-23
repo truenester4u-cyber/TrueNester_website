@@ -109,8 +109,9 @@ const Rent = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState<string>("relevance");
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 10;
+  // Page is kept in the URL so the browser back button restores the correct page
+  const currentPage = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
   const { data: allProperties = [], isLoading } = usePublishedRentals(search);
 
   // Min Rent options for dropdown (yearly rent in AED)
@@ -380,10 +381,14 @@ const Rent = () => {
     }
   }, [properties, sortBy]);
 
-  // Reset to page 1 whenever filters/sort change
+  // Reset to page 1 in the URL whenever filters or sort order change
   useEffect(() => {
-    setCurrentPage(1);
-  }, [sortedProperties.length, sortBy]);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.delete("page");
+      return next;
+    }, { replace: true });
+  }, [subarea, propertyType, bedrooms, furnishing, minRent, maxRent, minSize, maxSize, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(sortedProperties.length / PAGE_SIZE));
   const paginatedProperties = sortedProperties.slice(
@@ -392,7 +397,15 @@ const Rent = () => {
   );
 
   const goToPage = (page: number) => {
-    setCurrentPage(page);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (page <= 1) {
+        next.delete("page");
+      } else {
+        next.set("page", String(page));
+      }
+      return next;
+    });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
