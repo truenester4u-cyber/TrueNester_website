@@ -14,7 +14,7 @@ import { Bed, Bath, Square, MapPin, Heart, Grid3x3, List, ChevronDown, ChevronLe
 import { useIsPropertySaved, useToggleSaveProperty } from "@/hooks/useSavedProperties";
 import { useAuth } from "@/contexts/AuthContext.v2";
 import { useToast } from "@/hooks/use-toast";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -92,6 +92,7 @@ const HeartButton = ({ propertyId, propertyTitle, propertyImage, propertyPrice }
 
 const Rent = () => {
   const { data: showProjects = true } = useShowProjects();
+  const locationState = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [search, setSearch] = useState("");
@@ -828,7 +829,11 @@ const Rent = () => {
                           key={property.id}
                           className="overflow-hidden hover-lift group cursor-pointer border-0 shadow-lg"
                         >
-                          <Link to={`/property/${property.id}`} onClick={() => window.scrollTo(0, 0)}>
+                          <Link
+                            to={`/property/${property.id}`}
+                            state={{ from: `${locationState.pathname}${locationState.search}` }}
+                            onClick={() => window.scrollTo(0, 0)}
+                          >
                             <div className="relative overflow-hidden h-64 md:h-80">
                               {/* 4-Image Grid Layout for all screen sizes from 307px */}
                               <div className="flex gap-1 sm:gap-2 h-full">

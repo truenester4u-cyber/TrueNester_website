@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ToastAction } from "@/components/ui/toast";
 import { Bed, Bath, Square, MapPin, Phone, Mail, Share2, Heart, X, ChevronLeft, ChevronRight } from "lucide-react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import type React from "react";
 import { useState, useEffect, useRef, TouchEvent } from "react";
@@ -65,6 +65,7 @@ type PaymentPlanRow = {
 const PropertyDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, user } = useAuth();
   const { toast } = useToast();
   
@@ -105,7 +106,7 @@ const PropertyDetail = () => {
   const [touchEndY, setTouchEndY] = useState<number | null>(null);
   const minSwipeDistance = 80; // Increased from 50 for better accuracy
   const lastTapRef = useRef<number>(0);
-  const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const tapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialDistanceRef = useRef<number>(0);
   const initialZoomRef = useRef<number>(1);
   const pinchStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -443,6 +444,9 @@ const PropertyDetail = () => {
   const showPaymentPlan = hasStructuredPaymentPlan || hasRichPaymentPlan;
   const shouldShowPaymentPlanSection = showPaymentPlan || Boolean(property?.handover_date);
   const propertyTypesLabel = propertyTypes.map(formatPropertyTypeLabel).join(", ");
+  const listingFallback = property?.purpose === "rent" ? "/rent" : "/buy";
+  const listingLabel = property?.purpose === "rent" ? "Rent" : "Buy";
+  const listingReturnTo = typeof location.state?.from === "string" ? location.state.from : listingFallback;
 
   return (
     <Layout>
@@ -453,7 +457,7 @@ const PropertyDetail = () => {
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Link to="/" className="hover:text-primary">Home</Link>
               <span>/</span>
-              <Link to="/buy" className="hover:text-primary">Buy</Link>
+              <Link to={listingReturnTo} className="hover:text-primary">{listingLabel}</Link>
               <span>/</span>
               <span className="text-foreground">Property Details</span>
             </div>
